@@ -163,3 +163,4 @@ To make this repository fully prepared, I am modifying three additional detailed
 4.  **[vibe_coding_workflow.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/vibe_coding_workflow.md)**: Running Laravel dev servers, Composer, and route testing.
 
 *Let's update these files next.*
+# HRMS
