@@ -158,7 +158,7 @@ Generate PDFs using Laravel's file systems.
 
 To make this repository fully prepared, I am modifying three additional detailed guides in the `architecture/` folder:
 1.  **[database_schema.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/database_schema.md)**: Laravel Migrations, Eloquent Relations, and Model definitions.
-2.  **[web_app_guide.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/web_app_guide.md)**: React components, styling systems, and Axios API connector integration.
+2.  **[frontend_architecture.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/frontend_architecture.md)**: Laravel Blade layout structures, Tailwind CSS glassmorphic presets, Alpine.js state handlers, and Spatie permission checks.
 3.  **[flutter_app_guide.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/flutter_app_guide.md)**: Mobile layouts, Riverpod states, and Dio API call controllers.
 4.  **[vibe_coding_workflow.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/vibe_coding_workflow.md)**: Running Laravel dev servers, Composer, and route testing.
 

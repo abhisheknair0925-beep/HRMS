@@ -59,9 +59,9 @@ Use these prompts in your AI coding assistant sessions to construct the systems 
     > 3. Return the user details along with the Sanctum PlainTextToken upon successful login.
     > 4. Create a seeder (`DatabaseSeeder.php`) with 1 Admin, 1 HR, 2 Managers, and 5 Employees for testing."
 
-### Session 3: React Web Frontend Setup
+### Session 3: Laravel Blade UI Frontend Setup
 *   **Prompt to AI:**
-    > "Scaffold a new Vite + React + TypeScript + Tailwind web application in the `web_app/` folder. Use the visual design systems in [web_app_guide.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/web_app_guide.md). Install Axios and configure the `apiClient` to communicate with the Laravel backend. Create a Login Page that hits the `/api/login` endpoint, stores the Sanctum token, and forwards the user to the admin dashboard."
+    > "Configure the Laravel Blade views inside `backend/resources/views` using the design systems in [frontend_architecture.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/frontend_architecture.md). Set up Tailwind CSS, Vite compilation config, and Alpine.js. Create the custom layout views, header, and sidebar components with Spatie roles protection."
 
 ### Session 4: Geofenced Mobile Attendance (Flutter)
 *   **Prompt to AI:**
@@ -84,10 +84,10 @@ php artisan serve   # Runs Laravel on http://10.0.2.2:8000 or http://localhost:8
 ```
 *Note: Make sure CORS is configured in `config/cors.php` or `bootstrap/app.php` in Laravel 11 to allow requests from your React Web port (e.g. `http://localhost:5173`).*
 
-### Running the Web Client
+### Running the Vite Asset Bundler
 ```bash
-cd web_app
-npm run dev         # Runs React on http://localhost:5173
+cd backend
+npm run dev         # Runs Vite asset compiler with Hot Module Replacement (HMR) for Blade
 ```
 
 ### Running the Mobile Client
