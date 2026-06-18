@@ -38,6 +38,7 @@ Route::post('companies', [CompanyController::class, 'store']);
 Route::middleware(['auth:sanctum', TenantMiddleware::class])->group(function () {
     
     // Auth Control
+    Route::get('profile', [AuthController::class, 'profile']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
 

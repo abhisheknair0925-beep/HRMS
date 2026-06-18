@@ -45,6 +45,44 @@ class AuthController extends Controller
     }
 
     /**
+     * Get the authenticated user profile.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function profile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Eager load relationships
+        $user->load(['roles', 'employee.department', 'employee.designation']);
+        
+        $roleName = $user->getRoleNames()->first() ?? 'Employee';
+        
+        $formattedUser = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $roleName,
+            'employee' => $user->employee ? [
+                'id' => $user->employee->id,
+                'first_name' => $user->employee->first_name,
+                'last_name' => $user->employee->last_name,
+                'employee_id' => $user->employee->employee_id,
+                'joining_date' => $user->employee->joining_date,
+                'department' => $user->employee->department ? [
+                    'name' => $user->employee->department->name
+                ] : null,
+                'designation' => $user->employee->designation ? [
+                    'title' => $user->employee->designation->title
+                ] : null,
+            ] : null,
+        ];
+
+        return $this->successResponse($formattedUser, 'Profile retrieved.');
+    }
+
+    /**
      * Revoke current session token.
      *
      * @param Request $request

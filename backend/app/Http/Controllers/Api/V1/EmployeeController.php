@@ -30,6 +30,7 @@ class EmployeeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $employees = Employee::query()
+            ->with(['user.roles', 'department', 'designation', 'manager'])
             ->when($request->status, fn($q, $status) => $q->where('status', $status))
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
@@ -38,7 +39,7 @@ class EmployeeController extends Controller
                         ->orWhere('employee_id', 'like', "%{$search}%");
                 });
             })
-            ->paginate((int) ($request->per_page ?? 15));
+            ->paginate((int) ($request->per_page ?? 50));
 
         return $this->successResponse($employees, 'Employee profiles list retrieved.');
     }

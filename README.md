@@ -1,166 +1,120 @@
-# HumaNode HRMS - Project Blueprint & Architecture (Laravel Backend)
+# HumaNode HRMS - Enterprise SaaS Platform
 
-Welcome to the **HumaNode HRMS** (Human Resource Management System) project workspace. This document serves as the master blueprint for building a complete, enterprise-grade HRMS spanning a **Laravel API Backend**, a **React Web App** (for Admins, HRs, and desktop users), and a **Flutter App** (for Employee/Manager Self-Service on mobile).
-
-Since you are planning to build this project using **vibe coding**, this documentation is structured specifically to be **directly consumable by an AI coding assistant**. It outlines Laravel API endpoints, database structures, component hierarchies, state management strategies, and step-by-step prompting guides.
-
----
-
-## 📖 Table of Contents
-1. [Core Features & Modules](#-core-features--modules) (extracted from notebook notes)
-2. [Shared Architecture & Tech Stack](#-shared-architecture--tech-stack)
-3. [Monorepo Directory Structure](#-monorepo-directory-structure)
-4. [Step-by-Step Vibe Coding Roadmap](#-step-by-step-vibe-coding-roadmap)
-5. [Next Steps](#-next-steps)
+Welcome to **HumaNode HRMS** (Human Resource Management System), an enterprise-grade, multi-tenant SaaS platform built with a modern, decoupled architecture:
+1. **Backend API Server**: Powered by **Laravel 11**, **Laravel Sanctum**, **Spatie Permission (RBAC)**, and **SQLite/PostgreSQL**.
+2. **Frontend SPA Client**: Powered by **React 19**, **Vite**, **TypeScript**, **Tailwind CSS v4 (Glassmorphism)**, and **Recharts**.
 
 ---
 
 ## 📋 Core Features & Modules
 
-Below is the mapping of your handwritten requirements into structured software modules:
+### 1. Multi-Tenant Role-Based Access Control (Spatie RBAC)
+Supports hierarchical navigation menus and action gating based on Spatie roles:
+- **Super Admin / Company Admin**: Full setup configurations, tenant-switching, and administrative controls.
+- **HR**: Employee registry management, imports/exports, and leave policy settings.
+- **Manager**: Team dashboard, attendance logs, and leave approval overlays.
+- **Employee**: Individual dashboard, attendance check-in, leaves request center, and payslips downloads.
+
+### 2. Time & Attendance (GPS Location Geofencing)
+- **Interactive Check-In Panel**: Features a digital live clock, GPS tracker, and geofencing validation.
+- **GPS Coordinates**: The client queries coordinates via HTML5 `navigator.geolocation` and matches them against geofenced coordinates before allowing check-in.
+- **Attendance Logs**: Tabular lists showing log dates, clock-in/out stamps, working minutes, and status tags (`Present`, `Late`, `Half-Day`, `Absent`).
+
+### 3. Leaves Request & Accruals
+- **Leave Accruals Grid**: Displays real-time allocation vs consumed balances (Annual, Medical, Casual, unpaid leaves).
+- **Request Form Overlay**: Modal form allowing employees to submit start/end dates, leave types, and reasons.
+- **Approvals Workflow**: Manager and HR portals display interactive buttons to Approve/Reject pending requests.
+
+### 4. Interactive Glassmorphic Dashboards
+- **Visual Analytics**: Interactive area charts showing weekly/monthly attendance trends using **Recharts**.
+- **Company Announcements Ticker**: Displays tenant-scoped system announcements.
+- **Celebrate Birthdays Widget**: Shows upcoming team birthdays with a micro-interactive confetti trigger.
+
+### 5. Document Center & Payslips
+- **Payslips Prints**: Links directly to backend-generated templates optimizing native print style sheets.
+- **Employee Document Locker**: HR can upload and verify critical onboarding documents.
+
+---
+
+## ⚡ How the Project Works (Architecture Flow)
+
+Below is the execution flow of the decoupled system:
 
 ```mermaid
-graph TD
-    A[HRMS Core Platform] --> B[Core HR & Onboarding]
-    A --> C[Time & Attendance]
-    A --> D[Payroll & Documents]
-    A --> E[Performance & Self-Service]
+sequenceDiagram
+    participant Client as React Client (Port 5173)
+    participant Server as Laravel API (Port 8000)
+    participant DB as SQLite / PostgreSQL
 
-    B --> B1[Personal Master DB]
-    B --> B2[Org Chart]
-    B --> B3[Digital Onboarding Checklist]
+    Client->>Server: POST /api/v1/login (email, password, device_name)
+    Server->>DB: Verify user credentials & Spatie roles
+    DB-->>Server: User authenticated
+    Server-->>Client: Returns 200 OK + access_token + role names
+    Note over Client: Token saved in LocalStorage. Axios interceptor attaches Bearer token to all requests.
 
-    C --> C1[Shift & Attendance Tracking]
-    C --> C2[Geo-Location Clock-in]
-    C --> C3[Leave Approval Workflows]
+    Client->>Server: GET /api/v1/profile
+    Server-->>Client: Returns user profile, department, designation & manager relation
+    Note over Client: Renders Sidebar navigation based on role name
 
-    D --> D1[Salary Structure & F&F]
-    D --> D2[Automated PDF Letter Gen]
-    D --> D3[Payslip Repository]
-
-    E --> E1[ESS: Profile, Leave, Payslips]
-    E --> E2[MSS: Team Attendance, Leave Approval]
-    E --> E3[KPI & Performance Reviews]
-    E --> E4[Announcements & Birthdays]
+    Client->>Server: GET /api/v1/ess/dashboard
+    Server-->>Client: Returns statistics, charts, and company announcements
 ```
 
-### 1. Employment Information & Onboarding
-*   **Personal Master Database:** Stores personal details, contact information, emergency contacts, and employment history.
-*   **Department & Designation Mapping:** Dynamic department assignment and role definitions.
-*   **Organization Chart:** Visual representation of reporting structures.
-*   **Digital Onboarding Management:** Digital joining forms, document collection/verification, asset allocation checklists, automatic employee ID generation, and induction scheduling.
-
-### 2. Attendance & Time Management
-*   **Shift Management & Timesheets:** Define flexible or rotating shifts and submit weekly/monthly timesheets.
-*   **Geo-Location Attendance:** Field employees can clock in/out with coordinates verified against geofenced work zones.
-*   **Late Coming Reports:** Automate notifications and logs for attendance discrepancies.
-
-### 3. Leave Management
-*   **Leave Policy Configuration:** Configure leave types (casual, medical, annual, comp-off) and accrual rules.
-*   **Approval Workflows:** Multi-level leave application and approvals.
-*   **Leave Encashment & Reports:** Annual calculations for leave payouts and department-wide leave summaries.
-
-### 4. Payroll & Documents
-*   **Payroll Processing:** Salary structure management, revision workflows, and Full & Final (F&F) settlements.
-*   **Document Generation Engine:** PDF generator for official letters (Offer Letter, Appointment Letter, Salary Revision, Promotion, Warnings, and Experience & Relieving Letters).
-
-### 5. Self-Service Portal (ESS & MSS)
-*   **Employee Self-Service (ESS):** Mobile-first UI for profile updates, viewing attendance logs, applying for leaves, downloading payslips, and reading company announcements.
-*   **Manager Self-Service (MSS):** UI for monitoring team attendance, reviewing leave requests, and generating team reports.
-*   **Performance Management:** KPI tracking, self/manager appraisals, and periodic reviews.
-*   **Birthdays & Announcements:** Dashboard widgets for team celebrations and critical company updates.
+1. **Authentication & Token Exchange**: When a user logs in via the React SPA, the request is posted to the backend `/api/v1/login` endpoint. The server issues a personal access token via Laravel Sanctum.
+2. **Request Authorization**: The frontend stores the token in `localStorage`. An Axios request interceptor automatically injects the token into the `Authorization: Bearer <token>` header for all subsequent API requests.
+3. **Role Gating**: Upon page reload, the client fetches the `/profile` endpoint. The client router gates nested pages (e.g. `/manager/*`, `/admin/*`) using role checks derived from Spatie roles.
 
 ---
 
-## ⚡ Shared Architecture & Tech Stack
+## 🔑 Test Credentials (Dev Seed)
 
-To ensure a robust, highly extensible backend, we select a decoupled **Laravel API** backend. This allows both the React Web App and the Flutter Mobile App to communicate via secure REST APIs.
+The development SQLite database is seeded with four testing accounts, all configured with the password `Welcome@HumaNode123`:
 
-*   **Backend & API Engine:**
-    *   **Laravel 11 (PHP 8.2+)**
-    *   **Database:** PostgreSQL or MySQL (managed via Laravel Migrations and Eloquent ORM).
-    *   **Authentication:** **Laravel Sanctum**. Provides lightweight, token-based authentication perfect for single-page React apps (via cookies/tokens) and Flutter mobile apps (via bearer tokens).
-    *   **PDF Engine:** Laravel PDF/DomPDF wrapper for generating official employee letters.
-*   **Web Frontend:**
-    *   **React (Vite) + TypeScript + Tailwind CSS**. Communicates with the Laravel API via Axios.
-*   **Mobile App:**
-    *   **Flutter (Dart) + Riverpod** (State Management). Uses Flutter HTTP/Dio clients to communicate with Laravel endpoints.
+| Spatie Role | Username | Test Email | Password |
+| :--- | :--- | :--- | :--- |
+| **Admin** | Admin User | `admin@humanode.net` | `Welcome@HumaNode123` |
+| **HR** | Sarah HR | `hr@humanode.net` | `Welcome@HumaNode123` |
+| **Manager** | Sarah Manager | `manager@humanode.net` | `Welcome@HumaNode123` |
+| **Employee** | John Employee | `employee@humanode.net` | `Welcome@HumaNode123` |
 
 ---
 
-## 📁 Monorepo Directory Structure
+## 🛠️ Local Development Setup
 
-Create this folder structure in this repository so your AI coding assistant understands the layouts of all three applications:
+Follow these commands to configure and launch both environments locally:
 
-```text
-HRMS/
-├── README.md                          # This file
-├── backend/                           # Laravel 11 API Backend
-│   ├── app/
-│   │   ├── Http/Controllers/          # API Controllers (Auth, Attendance, Leave)
-│   │   └── Models/                    # Eloquent Models (Employee, Leave, Shift)
-│   ├── database/
-│   │   ├── migrations/                # Database tables & relations
-│   │   └── seeders/                   # Seed data for employees, depts, policies
-│   ├── routes/
-│   │   └── api.php                    # REST API Endpoint declarations
-│   └── composer.json
-├── web_app/                           # React Web Application
-│   ├── src/
-│   │   ├── components/                # Reusable UI (Buttons, Modals, OrgChart)
-│   │   ├── features/                  # Module-specific pages (Onboarding, Payroll)
-│   │   ├── hooks/                     # Custom React hooks (useAuth, useAttendance)
-│   │   └── lib/                       # Axios client & apiEndpoints config
-│   └── package.json
-└── mobile_app/                        # Flutter Mobile Application
-    ├── lib/
-    │   ├── core/                      # Constants, themes, API clients (Dio)
-    │   ├── models/                    # Data models (Employee, Leave, Shift)
-    │   ├── providers/                 # Riverpod states & auth providers
-    │   ├── views/                     # Mobile screens (ESS, MSS, Clock-In)
-    │   └── main.dart
-    └── pubspec.yaml
+### 1. Backend Setup (Laravel 11)
+```bash
+# Navigate to the backend folder
+cd backend
+
+# Install dependencies (ignoring platform limits on PHP version if needed)
+composer install --ignore-platform-reqs
+
+# Boot configurations and key
+cp .env.example .env
+php artisan key:generate
+
+# Wipe DB, run migrations and populate dev seeders
+php artisan migrate:fresh
+php artisan tinker database/seeders/seed_dev.php  # Seeds roles, company, and personas
+
+# Start the PHP local development server
+php artisan serve --port=8000
 ```
 
----
+### 2. Frontend Setup (React 19)
+```bash
+# Navigate to the web app folder
+cd web_app
 
-## 🚀 Step-by-Step Vibe Coding Roadmap
+# Install dependencies
+npm install
 
-To get the best results from vibe coding, go phase-by-phase. Below are the exact phases and **prompts to copy-paste to your AI assistant**.
+# Build client distribution targets (to verify TSX type checks)
+npm run build
 
-### Phase 1: Laravel Backend & DB Setup
-Create the API backend structure and run migrations.
-*   **Prompt to AI:** 
-    > "I am building an HRMS project with a Laravel 11 backend. Let's start by scaffolding the backend API.
-    > 1. Set up Laravel in a `/backend` folder.
-    > 2. Set up database migrations and Eloquent Models for: `departments`, `designations`, `employees` (linked to users with roles [Employee, Manager, HR, Admin]), `attendance_logs`, `leave_requests`, `documents`, and `salary_structures`.
-    > 3. Install and configure Laravel Sanctum for API token authentication.
-    > 4. Generate seed files for testing roles and departments."
-
-### Phase 2: Web App - Admin Dashboard & Axios Integration
-Get the dashboard working in React, querying the Laravel API.
-*   **Prompt to AI:**
-    > "Scaffold the React web app in `web_app/` using Vite, React, Tailwind CSS, and TypeScript. Set up an Axios HTTP client that routes to `http://localhost:8000/api`. Configure it to handle Bearer Token auth. Build a responsive, glassmorphic dashboard layout with a sidebar containing: Dashboard, Employee Master, Onboarding, Attendance, and Leave. Connect the login page to the Laravel Sanctum API endpoint."
-
-### Phase 3: Mobile App - Authentication & Geo-Location Attendance
-Bring the Flutter mobile app to life using Laravel API.
-*   **Prompt to AI:**
-    > "Let's scaffold the Flutter mobile app in `mobile_app/`. Set up Riverpod for state management. Integrate a RestClient/Dio setup pointing to our Laravel API at `http://10.0.2.2:8000/api` (for Android emulator) or `http://localhost:8000/api` (for iOS simulator). Design the 'Attendance Clock-In' card: it must fetch the user's GPS coordinates using the `geolocator` package, verify if they are within a geofenced range of the office coordinates, and submit a POST request to `/api/attendance/clock-in`."
-
-### Phase 4: Document Generation & Payroll in Laravel
-Generate PDFs using Laravel's file systems.
-*   **Prompt to AI:**
-    > "Let's implement the PDF document generation system using Laravel. Create a controller in Laravel that uses a PDF rendering package (like barryvdh/laravel-dompdf). Set up endpoints to generate and download signed official letters (Offer Letter, Warning, Relieving). In the React Web App, build the UI form templates to trigger this endpoint, and in the Flutter App, let employees download their payslips."
-
----
-
-## 🛠️ Next Steps
-
-To make this repository fully prepared, I am modifying three additional detailed guides in the `architecture/` folder:
-1.  **[database_schema.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/database_schema.md)**: Laravel Migrations, Eloquent Relations, and Model definitions.
-2.  **[frontend_architecture.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/frontend_architecture.md)**: Laravel Blade layout structures, Tailwind CSS glassmorphic presets, Alpine.js state handlers, and Spatie permission checks.
-3.  **[flutter_app_guide.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/flutter_app_guide.md)**: Mobile layouts, Riverpod states, and Dio API call controllers.
-4.  **[vibe_coding_workflow.md](file:///Users/abhishekanair/MyGithubProfile/HRMS/architecture/vibe_coding_workflow.md)**: Running Laravel dev servers, Composer, and route testing.
-
-*Let's update these files next.*
-# HRMS
+# Start the local Vite server
+npm run dev
+```
+The React frontend application will be served at **`http://localhost:5173`**.

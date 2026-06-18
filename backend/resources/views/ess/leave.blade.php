@@ -1,238 +1,105 @@
-@extends('ess.layout')
-
-@section('page_title', 'Leave Management')
-@section('page_subtitle', 'Check your leave balance, apply for leaves, and track approval status.')
-
-@section('header_actions')
-    <button class="btn" onclick="openModal()">
-        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        Apply For Leave
-    </button>
-@endsection
-
-@section('styles')
-<style>
-    /* Balance Cards */
-    .balances-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .balance-card {
-        text-align: center;
-        padding: 2rem 1.5rem;
-    }
-
-    .balance-policy {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.15rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-
-    .balance-days {
-        font-size: 2.25rem;
-        font-weight: 700;
-        background: var(--primary-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0.75rem 0;
-    }
-
-    .balance-meta {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        display: flex;
-        justify-content: space-around;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        padding-top: 0.75rem;
-        margin-top: 0.75rem;
-    }
-
-    /* Modal Styling */
-    .modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(15, 23, 42, 0.7);
-        backdrop-filter: blur(8px);
-        z-index: 1000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .modal-backdrop.active {
-        display: flex;
-        opacity: 1;
-    }
-
-    .modal-card {
-        width: 100%;
-        max-width: 500px;
-        background: var(--glass-bg);
-        backdrop-filter: var(--glass-blur);
-        border: 1px solid var(--glass-border);
-        border-radius: 24px;
-        padding: 2.5rem;
-        box-shadow: var(--card-shadow);
-        transform: translateY(-20px);
-        transition: transform 0.3s ease;
-    }
-
-    .modal-backdrop.active .modal-card {
-        transform: translateY(0);
-    }
-
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-    }
-
-    .modal-title {
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-
-    .close-btn {
-        background: transparent;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        font-size: 1.5rem;
-        line-height: 1;
-        padding: 0.25rem;
-    }
-
-    .close-btn:hover {
-        color: var(--text-main);
-    }
-
-    /* Table Styles */
-    .requests-table-wrapper {
-        overflow-x: auto;
-    }
-
-    .requests-table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-        font-size: 0.9rem;
-    }
-
-    .requests-table th {
-        color: var(--text-muted);
-        font-weight: 600;
-        padding: 1rem;
-        border-bottom: 1px solid var(--glass-border);
-    }
-
-    .requests-table td {
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    }
-
-    .requests-table tr:hover {
-        background: rgba(255, 255, 255, 0.01);
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge-approved { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-    .badge-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .badge-rejected { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
-</style>
-@endsection
-
-@section('content')
-    <!-- Balances Section -->
-    <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 1.25rem;">Leave Balances</h3>
-    <div class="balances-grid">
-        @if ($balances->isEmpty())
-            <div class="glass-card" style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">
-                No leave allocations configured for your profile. Please contact HR.
-            </div>
-        @else
-            @foreach ($balances as $balance)
-                @php
-                    $remaining = $balance->allocated_days - $balance->used_days - $balance->encashed_days;
-                @endphp
-                <div class="glass-card balance-card">
-                    <p class="balance-policy">{{ $balance->leavePolicy->name }}</p>
-                    <p class="balance-days">{{ $remaining }}</p>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Days Remaining</p>
-                    
-                    <div class="balance-meta">
-                        <div>
-                            <p style="font-weight: 600; color: var(--text-main);">{{ $balance->allocated_days }}</p>
-                            <p style="font-size: 0.7rem;">Allocated</p>
-                        </div>
-                        <div>
-                            <p style="font-weight: 600; color: var(--text-main);">{{ $balance->used_days }}</p>
-                            <p style="font-size: 0.7rem;">Used</p>
-                        </div>
-                        @if ($balance->encashed_days > 0)
-                            <div>
-                                <p style="font-weight: 600; color: var(--text-main);">{{ $balance->encashed_days }}</p>
-                                <p style="font-size: 0.7rem;">Encashed</p>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        @endif
+<x-layouts.app>
+    <!-- Header with Action Trigger -->
+    <div class="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Leave Management</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Check your remaining leave balances, apply for time-off, and track approvals.
+            </p>
+        </div>
+        <button @click="$dispatch('open-modal', { name: 'apply-leave' })"
+                class="px-4 py-2.5 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl btn-glow text-xs flex items-center gap-2">
+            <span>➕</span> Apply For Leave
+        </button>
     </div>
 
-    <!-- History Requests List -->
-    <div class="glass-card">
-        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">Leave Request History</h3>
+    <!-- Grid: Leave Balances -->
+    <div class="mb-8">
+        <h3 class="text-sm font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-4">Leave Balances</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            @if ($balances->isEmpty())
+                <div class="glass-panel p-6 col-span-3 text-center text-slate-400 text-sm">
+                    No leave allocations configured for your profile. Please contact HR.
+                </div>
+            @else
+                @foreach ($balances as $balance)
+                    @php
+                        $remaining = $balance->allocated_days - $balance->used_days - $balance->encashed_days;
+                    @endphp
+                    <div class="glass-panel p-6 text-center flex flex-col justify-between hover:scale-[1.01] transition-transform">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ $balance->leavePolicy->name }}</p>
+                            <h2 class="text-4xl font-extrabold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent my-4">
+                                {{ $remaining }}
+                            </h2>
+                            <p class="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Days Remaining</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-2 border-t border-slate-200 dark:border-slate-800/80 pt-4 mt-6 text-[10px] font-semibold">
+                            <div>
+                                <p class="text-slate-700 dark:text-slate-300 font-bold text-xs">{{ $balance->allocated_days }}</p>
+                                <p class="text-slate-400 mt-0.5">Allocated</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-700 dark:text-slate-300 font-bold text-xs">{{ $balance->used_days }}</p>
+                                <p class="text-slate-400 mt-0.5">Used</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-700 dark:text-slate-300 font-bold text-xs">{{ $balance->encashed_days }}</p>
+                                <p class="text-slate-400 mt-0.5">Encashed</p>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            @endif
+        </div>
+    </div>
 
+    <!-- Request History List -->
+    <div class="glass-panel p-6">
+        <h3 class="text-sm font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase mb-4">Leave Request History</h3>
+        
         @if ($requests->isEmpty())
-            <p style="color: var(--text-muted); text-align: center; padding: 2rem 0;">No leave applications found.</p>
+            <div class="text-center py-12 text-slate-400">
+                <span class="text-4xl block mb-2">📬</span>
+                <p class="text-sm">No leave applications found.</p>
+            </div>
         @else
-            <div class="requests-table-wrapper">
-                <table class="requests-table">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr>
-                            <th>Policy Type</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Days</th>
-                            <th>Reason</th>
-                            <th>Status</th>
+                        <tr class="border-b border-slate-200 dark:border-slate-800/80 text-slate-400 uppercase tracking-widest font-bold">
+                            <th class="pb-3 pr-4">Policy Type</th>
+                            <th class="pb-3 px-4">Start Date</th>
+                            <th class="pb-3 px-4">End Date</th>
+                            <th class="pb-3 px-4">Days</th>
+                            <th class="pb-3 px-4">Reason</th>
+                            <th class="pb-3 pl-4 text-right">Status</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40">
                         @foreach ($requests as $req)
-                            <tr>
-                                <td style="font-weight: 500;">{{ $req->leavePolicy ? $req->leavePolicy->name : 'N/A' }}</td>
-                                <td>{{ \Carbon\Carbon::parse($req->start_date)->format('M d, Y') }}</td>
-                                <td>{{ \Carbon\Carbon::parse($req->end_date)->format('M d, Y') }}</td>
-                                <td>{{ $req->total_days }} {{ Str::plural('day', (float)$req->total_days) }}</td>
-                                <td style="max-width: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ $req->reason }}">
+                            <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/20 transition-colors">
+                                <td class="py-3.5 pr-4 font-bold text-slate-700 dark:text-slate-300">
+                                    {{ $req->leavePolicy ? $req->leavePolicy->name : 'N/A' }}
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-medium">
+                                    {{ \Carbon\Carbon::parse($req->start_date)->format('M d, Y') }}
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-medium">
+                                    {{ \Carbon\Carbon::parse($req->end_date)->format('M d, Y') }}
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-semibold">
+                                    {{ $req->total_days }} {{ Str::plural('day', (float)$req->total_days) }}
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400 max-w-[200px] truncate" title="{{ $req->reason }}">
                                     {{ $req->reason }}
                                 </td>
-                                <td>
-                                    <span class="status-badge 
-                                        @if ($req->status === 'Approved') badge-approved
-                                        @elseif ($req->status === 'Pending') badge-pending
-                                        @else badge-rejected
+                                <td class="py-3.5 pl-4 text-right">
+                                    <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase
+                                        @if ($req->status === 'Approved') bg-success/10 text-success
+                                        @elseif ($req->status === 'Pending') bg-warning/10 text-warning
+                                        @else bg-danger/10 text-danger
                                         @endif">
                                         {{ $req->status }}
                                     </span>
@@ -246,77 +113,54 @@
     </div>
 
     <!-- Apply Leave Modal -->
-    <div class="modal-backdrop" id="leave-modal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3 class="modal-title">Apply for Leave</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
+    <x-ui.modal name="apply-leave" title="Apply for Leave">
+        <form action="{{ route('ess.leave.apply') }}" method="POST" class="space-y-4" x-data="{ startDate: '', endDate: '' }">
+            @csrf
             
-            <form action="{{ route('ess.leave.apply') }}" method="POST">
-                @csrf
-                
-                <div class="form-control">
-                    <label for="leave_policy_id" class="form-label">Leave Type</label>
-                    <select name="leave_policy_id" id="leave_policy_id" class="form-input" style="appearance: none;" required>
-                        <option value="" disabled selected>Select Leave Type</option>
-                        @foreach ($policies as $policy)
-                            <option value="{{ $policy->id }}">{{ $policy->name }} (Total {{ $policy->total_days }} Days)</option>
-                        @endforeach
-                    </select>
+            <!-- Leave Type -->
+            <div class="space-y-1">
+                <label for="leave_policy_id" class="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Leave Type</label>
+                <select name="leave_policy_id" id="leave_policy_id" class="glass-input text-xs" required>
+                    <option value="" disabled selected>Select Leave Type</option>
+                    @foreach ($policies as $policy)
+                        <option value="{{ $policy->id }}">{{ $policy->name }} (Total {{ $policy->total_days }} Days)</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Date range grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                    <label for="start_date" class="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" x-model="startDate" class="glass-input text-xs" required min="{{ now()->toDateString() }}">
                 </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-control">
-                        <label for="start_date" class="form-label">Start Date</label>
-                        <input type="date" name="start_date" id="start_date" class="form-input" required min="{{ now()->toDateString() }}">
-                    </div>
-                    <div class="form-control">
-                        <label for="end_date" class="form-label">End Date</label>
-                        <input type="date" name="end_date" id="end_date" class="form-input" required min="{{ now()->toDateString() }}">
-                    </div>
+                <div class="space-y-1">
+                    <label for="end_date" class="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">End Date</label>
+                    <input type="date" name="end_date" id="end_date" x-model="endDate" :min="startDate" class="glass-input text-xs" required min="{{ now()->toDateString() }}">
                 </div>
+            </div>
 
-                <div class="form-control" style="display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0;">
-                    <input type="checkbox" name="half_day" id="half_day" value="1" style="width: auto; cursor: pointer;">
-                    <label for="half_day" style="font-size: 0.85rem; font-weight: 500; cursor: pointer; user-select: none;">Apply as Half Day</label>
-                </div>
+            <!-- Half day checker -->
+            <div class="flex items-center gap-2 py-1">
+                <input type="checkbox" name="half_day" id="half_day" value="1" class="w-4 h-4 rounded border-slate-300 text-primary-500 focus:ring-primary-500 bg-slate-950/40 cursor-pointer">
+                <label for="half_day" class="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">Apply as Half Day</label>
+            </div>
 
-                <div class="form-control">
-                    <label for="reason" class="form-label">Reason for Leave</label>
-                    <textarea name="reason" id="reason" class="form-input" rows="4" placeholder="Brief explanation of your leave request..." style="resize: none;" required></textarea>
-                </div>
+            <!-- Reason -->
+            <div class="space-y-1">
+                <label for="reason" class="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Reason for Leave</label>
+                <textarea name="reason" id="reason" class="glass-input text-xs resize-none" rows="4" placeholder="Brief explanation of your leave request..." required></textarea>
+            </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn" style="flex: 1;">Submit Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
-@endsection
-
-@section('scripts')
-<script>
-    const modal = document.getElementById('leave-modal');
-    
-    function openModal() {
-        modal.classList.add('active');
-    }
-    
-    function closeModal() {
-        modal.classList.remove('active');
-    }
-
-    // Auto update min End Date based on Start Date selection
-    const startDateInput = document.getElementById('start_date');
-    const endDateInput = document.getElementById('end_date');
-    
-    startDateInput.addEventListener('change', () => {
-        endDateInput.min = startDateInput.value;
-        if (endDateInput.value && endDateInput.value < startDateInput.value) {
-            endDateInput.value = startDateInput.value;
-        }
-    });
-</script>
-@endsection
+            <!-- Actions buttons -->
+            <div class="flex gap-4 pt-4 border-t border-slate-200 dark:border-slate-800/80">
+                <button type="button" @click="$dispatch('close-modal')" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-2.5 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl text-xs transition-colors btn-glow">
+                    Submit Request
+                </button>
+            </div>
+        </form>
+    </x-ui.modal>
+</x-layouts.app>
