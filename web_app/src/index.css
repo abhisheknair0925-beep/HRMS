@@ -84,4 +84,16 @@
 body {
     margin: 0;
     font-family: 'Outfit', sans-serif;
+    background-image: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 35%, #e0e7ff 70%, #faf5ff 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
 }
+
+:is(.dark) body {
+    background-image: linear-gradient(135deg, #030712 0%, #0f172a 45%, #1e1b4b 80%, #030712 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
+

@@ -56,7 +56,7 @@ export const Layout: React.FC = () => {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased font-sans">
+    <div className="flex min-h-screen bg-transparent text-slate-900 dark:text-slate-100 antialiased font-sans">
       
       {/* Sidebar */}
       <aside className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out select-none z-30 ${collapsed ? 'w-20' : 'w-64'}`}>

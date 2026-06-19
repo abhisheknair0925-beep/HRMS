@@ -26,7 +26,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center overflow-hidden relative select-none antialiased w-full">
+    <div className="bg-transparent text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center overflow-hidden relative select-none antialiased w-full">
       {/* Background blobs */}
       <div className="absolute w-[350px] h-[350px] rounded-full bg-primary-500/20 blur-[100px] left-[15%] top-[10%] animate-pulse"></div>
       <div className="absolute w-[400px] h-[400px] rounded-full bg-secondary-500/10 blur-[100px] right-[15%] bottom-[10%] animate-pulse delay-2000"></div>
