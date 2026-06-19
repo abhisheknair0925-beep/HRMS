@@ -32,21 +32,30 @@ class AttendanceController extends Controller
         }
 
         $validated = $request->validate([
-            'employee_id' => 'required|uuid|exists:employees,id',
+            'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
         ]);
 
-        // Standard employees can only check in for themselves
-        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+        $employeeId = $request->input('employee_id');
+        if (!$employeeId) {
             $userEmployee = $user->employee;
-            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
-                return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+            if (!$userEmployee) {
+                return $this->errorResponse('Employee profile not found.', 404);
+            }
+            $employeeId = $userEmployee->id;
+        } else {
+            // Standard employees can only check in for themselves
+            if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+                $userEmployee = $user->employee;
+                if (!$userEmployee || $userEmployee->id !== $employeeId) {
+                    return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+                }
             }
         }
 
         $log = $this->attendanceService->clockIn(
-            $validated['employee_id'],
+            $employeeId,
             (float) $validated['latitude'],
             (float) $validated['longitude'],
             $request->ip() ?? '127.0.0.1'
@@ -69,21 +78,30 @@ class AttendanceController extends Controller
         }
 
         $validated = $request->validate([
-            'employee_id' => 'required|uuid|exists:employees,id',
+            'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
         ]);
 
-        // Standard employees can only check out for themselves
-        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+        $employeeId = $request->input('employee_id');
+        if (!$employeeId) {
             $userEmployee = $user->employee;
-            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
-                return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+            if (!$userEmployee) {
+                return $this->errorResponse('Employee profile not found.', 404);
+            }
+            $employeeId = $userEmployee->id;
+        } else {
+            // Standard employees can only check out for themselves
+            if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+                $userEmployee = $user->employee;
+                if (!$userEmployee || $userEmployee->id !== $employeeId) {
+                    return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+                }
             }
         }
 
         $log = $this->attendanceService->clockOut(
-            $validated['employee_id'],
+            $employeeId,
             (float) $validated['latitude'],
             (float) $validated['longitude'],
             $request->ip() ?? '127.0.0.1'
@@ -106,23 +124,32 @@ class AttendanceController extends Controller
         }
 
         $validated = $request->validate([
-            'employee_id' => 'required|uuid|exists:employees,id',
+            'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'requested_date' => 'required|date',
             'requested_clock_in' => 'nullable|date_format:H:i:s',
             'requested_clock_out' => 'nullable|date_format:H:i:s',
             'reason' => 'required|string|max:500',
         ]);
 
-        // Standard employees can only regularize for themselves
-        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+        $employeeId = $request->input('employee_id');
+        if (!$employeeId) {
             $userEmployee = $user->employee;
-            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
-                return $this->errorResponse('Access denied. You can only submit attendance corrections for yourself.', 403);
+            if (!$userEmployee) {
+                return $this->errorResponse('Employee profile not found.', 404);
+            }
+            $employeeId = $userEmployee->id;
+        } else {
+            // Standard employees can only regularize for themselves
+            if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+                $userEmployee = $user->employee;
+                if (!$userEmployee || $userEmployee->id !== $employeeId) {
+                    return $this->errorResponse('Access denied. You can only submit attendance corrections for yourself.', 403);
+                }
             }
         }
 
         $regularization = $this->attendanceService->requestRegularization(
-            $validated['employee_id'],
+            $employeeId,
             $validated['requested_date'],
             $validated['requested_clock_in'] ?? null,
             $validated['requested_clock_out'] ?? null,
