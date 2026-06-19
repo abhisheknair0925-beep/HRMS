@@ -52,6 +52,11 @@ class EmployeeController extends Controller
      */
     public function store(StoreEmployeeRequest $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'HR'])) {
+            return $this->errorResponse('Access denied. Only Admins or HR can register new employees.', 403);
+        }
+
         $employee = Employee::create($request->validated());
         return $this->successResponse($employee, 'Employee profile created successfully.', 201);
     }
@@ -64,10 +69,23 @@ class EmployeeController extends Controller
      */
     public function show(string $id): JsonResponse
     {
+        $user = auth()->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $employee = Employee::with('documents')->find($id);
 
-        if (!$employee) {
+        if (!$employee || $employee->company_id !== $user->company_id) {
             return $this->errorResponse('Employee not found or access denied.', 404);
+        }
+
+        // BOLA / IDOR check: Employees can only view their own master record
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $id) {
+                return $this->errorResponse('Access denied. You can only view your own profile details.', 403);
+            }
         }
 
         return $this->successResponse($employee, 'Employee details retrieved.');
@@ -82,10 +100,20 @@ class EmployeeController extends Controller
      */
     public function update(StoreEmployeeRequest $request, string $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $employee = Employee::find($id);
 
-        if (!$employee) {
+        if (!$employee || $employee->company_id !== $user->company_id) {
             return $this->errorResponse('Employee not found or access denied.', 404);
+        }
+
+        // Only Admins or HR can edit master employee records
+        if (!$user->hasAnyRole(['Admin', 'HR'])) {
+            return $this->errorResponse('Access denied. Only Admins or HR can edit master employee records.', 403);
         }
 
         $employee->update($request->validated());
@@ -101,10 +129,19 @@ class EmployeeController extends Controller
      */
     public function destroy(string $id): JsonResponse
     {
+        $user = auth()->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $employee = Employee::find($id);
 
-        if (!$employee) {
+        if (!$employee || $employee->company_id !== $user->company_id) {
             return $this->errorResponse('Employee not found or access denied.', 404);
+        }
+
+        if (!$user->hasAnyRole(['Admin', 'HR'])) {
+            return $this->errorResponse('Access denied. Only Admins or HR can delete employees.', 403);
         }
 
         $employee->delete();
@@ -121,10 +158,23 @@ class EmployeeController extends Controller
      */
     public function uploadPhoto(Request $request, string $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $employee = Employee::find($id);
 
-        if (!$employee) {
+        if (!$employee || $employee->company_id !== $user->company_id) {
             return $this->errorResponse('Employee not found.', 404);
+        }
+
+        // Standard employees can only update their own photo
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $id) {
+                return $this->errorResponse('Access denied. You can only update your own photo.', 403);
+            }
         }
 
         $request->validate([
@@ -157,10 +207,23 @@ class EmployeeController extends Controller
      */
     public function uploadDocument(Request $request, string $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $employee = Employee::find($id);
 
-        if (!$employee) {
+        if (!$employee || $employee->company_id !== $user->company_id) {
             return $this->errorResponse('Employee not found.', 404);
+        }
+
+        // Standard employees can only upload documents for themselves
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $id) {
+                return $this->errorResponse('Access denied. You can only upload documents for yourself.', 403);
+            }
         }
 
         $request->validate([
@@ -190,10 +253,15 @@ class EmployeeController extends Controller
     /**
      * Export employee registry to Excel.
      *
-     * @return BinaryFileResponse
+     * @param Request $request
+     * @return mixed
      */
-    public function export(): BinaryFileResponse
+    public function export(Request $request): mixed
     {
+        $user = $request->user() ?: auth()->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'HR'])) {
+            return $this->errorResponse('Access denied.', 403);
+        }
         return Excel::download(new EmployeeExport, 'employees.xlsx');
     }
 
@@ -205,6 +273,11 @@ class EmployeeController extends Controller
      */
     public function import(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'HR'])) {
+            return $this->errorResponse('Access denied.', 403);
+        }
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
         ]);

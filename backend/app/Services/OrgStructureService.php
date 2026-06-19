@@ -7,10 +7,18 @@ namespace App\Services;
 use App\Models\Employee;
 use App\Models\EmployeeTransfer;
 use App\Exceptions\BusinessException;
+use App\Services\TenantContext;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class OrgStructureService
 {
+    protected TenantContext $tenantContext;
+
+    public function __construct(?TenantContext $tenantContext = null)
+    {
+        $this->tenantContext = $tenantContext ?? app(TenantContext::class);
+    }
     /**
      * Transfer employee to a new department/designation.
      *
@@ -66,6 +74,10 @@ class OrgStructureService
                 ])
                 ->log('Employee transferred to new org division');
 
+            // Bust the org tree cache for the tenant
+            $companyId = $this->tenantContext->getCompanyId() ?? $employee->company_id;
+            Cache::forget("tenant:{$companyId}:org_tree");
+
             return $employee;
         });
     }
@@ -77,32 +89,37 @@ class OrgStructureService
      */
     public function getOrganizationTree(): array
     {
-        // Fetch employees under global tenant filter
-        $employees = Employee::with(['designation'])->get();
+        $companyId = $this->tenantContext->getCompanyId() ?? 'global';
+        $cacheKey = "tenant:{$companyId}:org_tree";
 
-        $mapped = [];
-        foreach ($employees as $employee) {
-            $mapped[$employee->user_id] = [
-                'id' => $employee->id,
-                'user_id' => $employee->user_id,
-                'name' => $employee->first_name . ' ' . $employee->last_name,
-                'employee_id' => $employee->employee_id,
-                'designation' => $employee->designation?->title ?? 'Unassigned',
-                'manager_id' => $employee->manager_id,
-                'children' => []
-            ];
-        }
+        return Cache::remember($cacheKey, now()->addHours(6), function () {
+            // Fetch employees under global tenant filter
+            $employees = Employee::with(['designation'])->get();
 
-        $tree = [];
-        foreach ($mapped as $userId => &$node) {
-            $parentManagerId = $node['manager_id'];
-            if ($parentManagerId && isset($mapped[$parentManagerId])) {
-                $mapped[$parentManagerId]['children'][] = &$node;
-            } else {
-                $tree[] = &$node;
+            $mapped = [];
+            foreach ($employees as $employee) {
+                $mapped[$employee->user_id] = [
+                    'id' => $employee->id,
+                    'user_id' => $employee->user_id,
+                    'name' => $employee->first_name . ' ' . $employee->last_name,
+                    'employee_id' => $employee->employee_id,
+                    'designation' => $employee->designation?->title ?? 'Unassigned',
+                    'manager_id' => $employee->manager_id,
+                    'children' => []
+                ];
             }
-        }
 
-        return $tree;
+            $tree = [];
+            foreach ($mapped as $userId => &$node) {
+                $parentManagerId = $node['manager_id'];
+                if ($parentManagerId && isset($mapped[$parentManagerId])) {
+                    $mapped[$parentManagerId]['children'][] = &$node;
+                } else {
+                    $tree[] = &$node;
+                }
+            }
+
+            return $tree;
+        });
     }
 }

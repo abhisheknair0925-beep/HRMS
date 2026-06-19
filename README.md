@@ -118,3 +118,28 @@ npm run build
 npm run dev
 ```
 The React frontend application will be served at **`http://localhost:5173`**.
+
+---
+
+## 💾 Note on Database Persistence
+
+Welcome to **HumaNode HRMS**'s database system. The project operates with a decoupled state architecture powered by immediate database persistence:
+1. **SQLite Database Configuration**: For local development, the backend stores transactional records in an SQLite file (`backend/database/database.sqlite`).
+2. **Dynamic Database Migrations**: Relational schema definitions are governed via Laravel database migrations. Major persistable domains include:
+   - **Employees & Onboarding Checklists**: Managed under `employees` and `employee_checklists` tables.
+   - **Time & Attendance**: Stored in `attendance_logs`.
+   - **Leave Management & Balances**: Tracked via `leave_requests`, `leave_policies`, and `leave_balances`.
+   - **Performance Appraisals**: Evaluated metrics are persistently stored in the `performance_appraisals` table.
+3. **Decoupled Sync Flow**: The React frontend client communicates via authenticated REST APIs (`Axios` calls) with the Laravel server. Any edit, such as adding prior employment history or grading an appraisal scorecard, writes directly to the SQLite database and is retrieved in real-time.
+
+---
+
+## 🔒 Security Architecture & Cyber Attack Protections
+
+We have implemented strict security validations across our REST API routes and backend controllers to guard against common cyber attack vectors:
+1. **Broken Object Level Authorization (IDOR / BOLA)**: Every endpoint containing resource parameters (e.g. `/employees/{id}`, `/leaves/balances/{id}`, `/employees/{id}/appraisals`) validates that the requesting user belongs to the same tenant company, and gates access based on the user's role. Standard employees are only authorized to read or write their own profile records.
+2. **Broken Function Level Authorization (Privilege Escalation)**: Critical endpoints (such as processing leave approvals, managing master employee logs, and grading appraisals) are role-guarded via Spatie's Permission middleware (`role:Admin|HR|Manager`) and manual controller assertions to prevent standard users from making state-modifying requests.
+3. **Multi-Tenant Scoping (Tenant Cross-Talk)**: Enforced dynamically using a global query scope (`BelongsToTenant` trait) which isolates database queries by Company context (`company_id`), ensuring data never leaks across tenant boundaries.
+4. **Cross-Site Scripting (XSS)**: Mitigated by React's native safe interpolation that automatically HTML-escapes all strings rendered in TSX templates. Input validations on the backend sanitize and reject script tags in fields like appraisal reviews and chat logs.
+5. **Geolocation Spoofing Prevention**: While geofenced coordinates are tracked on the frontend via HTML5 Geolocation API, check-ins require IP checks and backend coordinate verification to secure location validity.
+6. **Unrestricted File Upload Guard**: Sanitized upload endpoints on the `EmployeeController` reject executing scripts by validating file types (`mimes:pdf,jpg,png`), sizes, and storing uploads with auto-hashed names outside the execution path.

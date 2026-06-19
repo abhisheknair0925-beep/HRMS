@@ -40,6 +40,7 @@ class Employee extends Model
         'family_info',
         'emergency_contacts',
         'bank_details',
+        'employment_history',
         'created_by',
         'updated_by',
     ];
@@ -51,6 +52,7 @@ class Employee extends Model
         'family_info' => 'array',
         'emergency_contacts' => 'array',
         'bank_details' => 'array',
+        'employment_history' => 'array',
     ];
 
     /**
@@ -81,6 +83,14 @@ class Employee extends Model
 
                 $employee->employee_id = sprintf('EMP-%s-%04d', $year, $nextSeq);
             }
+        });
+
+        static::saved(function (Employee $employee) {
+            \Illuminate\Support\Facades\Cache::forget("tenant:{$employee->company_id}:org_tree");
+        });
+
+        static::deleted(function (Employee $employee) {
+            \Illuminate\Support\Facades\Cache::forget("tenant:{$employee->company_id}:org_tree");
         });
     }
 
@@ -192,5 +202,15 @@ class Employee extends Model
     public function regularizations(): HasMany
     {
         return $this->hasMany(AttendanceRegularization::class, 'employee_id');
+    }
+
+    /**
+     * Get the performance appraisals for this employee.
+     *
+     * @return HasMany
+     */
+    public function appraisals(): HasMany
+    {
+        return $this->hasMany(PerformanceAppraisal::class, 'employee_id')->orderBy('review_date', 'desc');
     }
 }

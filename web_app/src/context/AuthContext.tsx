@@ -27,6 +27,13 @@ interface User {
       relationship?: string;
       phone?: string;
     }>;
+    employment_history?: Array<{
+      company_name: string;
+      designation: string;
+      start_date: string;
+      end_date?: string | null;
+      description?: string;
+    }>;
   };
 }
 

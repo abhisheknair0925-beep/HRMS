@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Home, Calendar, Clock, FolderClosed, 
   Menu, Bell, Sun, Moon, Briefcase, Settings, Users,
-  FileText, UserPlus, GitFork, Settings2, DollarSign
+  FileText, UserPlus, GitFork, Settings2, DollarSign, X
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
@@ -12,6 +12,7 @@ export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const isDark = localStorage.getItem('darkMode') === 'true';
     if (isDark) document.documentElement.classList.add('dark');
@@ -58,21 +59,39 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-transparent text-slate-900 dark:text-slate-100 antialiased font-sans">
       
+      {/* Mobile Sidebar backdrop */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        ></div>
+      )}
+
       {/* Sidebar */}
-      <aside className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out select-none z-30 ${collapsed ? 'w-20' : 'w-64'}`}>
+      <aside className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out select-none z-50
+        fixed md:static inset-y-0 left-0 
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${collapsed ? 'md:w-20' : 'md:w-64'} w-64`}>
         
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-800">
-          {!collapsed && (
+          {(!collapsed || mobileOpen) ? (
             <span className="text-xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent tracking-wide">
               HumaNode
             </span>
+          ) : (
+            <span className="text-xl font-bold text-primary-500 mx-auto">H</span>
           )}
-          {collapsed && <span className="text-xl font-bold text-primary-500 mx-auto">H</span>}
           
-          <button onClick={() => setCollapsed(!collapsed)} 
+          <button onClick={() => {
+            if (mobileOpen) {
+              setMobileOpen(false);
+            } else {
+              setCollapsed(!collapsed);
+            }
+          }} 
                   className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-300 transition-colors">
-            <Menu size={18} />
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
 
@@ -83,14 +102,17 @@ export const Layout: React.FC = () => {
             const active = location.pathname === item.path;
             return (
               <button key={item.name}
-                      onClick={() => navigate(item.path)}
+                      onClick={() => {
+                        navigate(item.path);
+                        setMobileOpen(false);
+                      }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                         active 
                           ? 'bg-primary-500/10 text-primary-500 border border-primary-500/20' 
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                       }`}>
                 <Icon size={18} />
-                {!collapsed && <span>{item.name}</span>}
+                {(!collapsed || mobileOpen) && <span>{item.name}</span>}
               </button>
             );
           })}
@@ -102,7 +124,7 @@ export const Layout: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-500 to-secondary-500 flex items-center justify-center font-bold text-slate-950 text-sm">
               {user?.name ? user.name[0] : 'U'}
             </div>
-            {!collapsed && (
+            {(!collapsed || mobileOpen) && (
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold truncate text-slate-800 dark:text-slate-200">{user?.name || 'Loading...'}</p>
                 <p className="text-[10px] text-slate-400 truncate">{user?.role || 'Employee'}</p>
@@ -117,12 +139,20 @@ export const Layout: React.FC = () => {
         
         {/* Header */}
         <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 z-20">
-          <div className="flex-1 max-w-lg hidden md:block">
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">🔍</span>
-              <input type="text" 
-                     placeholder="Search employees, documents, requests..." 
-                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all" />
+          <div className="flex items-center">
+            {/* Hamburger menu for mobile view */}
+            <button onClick={() => setMobileOpen(true)}
+                    className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-300 transition-colors mr-3 md:hidden">
+              <Menu size={18} />
+            </button>
+            
+            <div className="flex-1 max-w-lg hidden md:block">
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">🔍</span>
+                <input type="text" 
+                       placeholder="Search employees, documents, requests..." 
+                       className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all" />
+              </div>
             </div>
           </div>
 
@@ -188,4 +218,5 @@ export const Layout: React.FC = () => {
     </div>
   );
 };
+
 export default Layout;

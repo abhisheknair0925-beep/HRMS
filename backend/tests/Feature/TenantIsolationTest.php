@@ -105,12 +105,16 @@ class TenantIsolationTest extends TestCase
             'currency' => 'USD',
         ]);
 
+        // Seed Admin role and assign to user to satisfy function-level authorization checks
+        \Spatie\Permission\Models\Role::create(['name' => 'Admin', 'guard_name' => 'web']);
+
         $user = User::create([
             'company_id' => $company->id,
             'name' => 'Test User',
             'email' => 'test@acme.com',
             'password' => bcrypt('password'),
         ]);
+        $user->assignRole('Admin');
 
         \Laravel\Sanctum\Sanctum::actingAs($user);
 

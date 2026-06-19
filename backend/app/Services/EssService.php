@@ -86,6 +86,10 @@ class EssService
             $employee->bank_details = $data['bank_details'];
         }
 
+        if (isset($data['employment_history'])) {
+            $employee->employment_history = $data['employment_history'];
+        }
+
         $employee->save();
 
         return $employee;

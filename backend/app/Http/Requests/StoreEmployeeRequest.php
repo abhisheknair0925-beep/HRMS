@@ -59,6 +59,13 @@ class StoreEmployeeRequest extends FormRequest
             'bank_details.account_number' => 'required_with:bank_details|string|max:50',
             'bank_details.branch_code' => 'nullable|string|max:50',
             'bank_details.swift_code' => 'nullable|string|max:50',
+
+            'employment_history' => 'nullable|array',
+            'employment_history.*.company_name' => 'required_with:employment_history|string|max:150',
+            'employment_history.*.designation' => 'required_with:employment_history|string|max:100',
+            'employment_history.*.start_date' => 'required_with:employment_history|date',
+            'employment_history.*.end_date' => 'nullable|date|after_or_equal:employment_history.*.start_date',
+            'employment_history.*.description' => 'nullable|string|max:1000',
         ];
     }
 }

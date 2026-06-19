@@ -31,7 +31,22 @@ class EmployeeImport implements ToCollection, WithHeadingRow
             throw new \RuntimeException("Cannot process import: Tenant company context not resolved.");
         }
 
-        DB::transaction(function () use ($rows, $companyId) {
+        $emails = $rows->pluck('email')->filter()->unique()->toArray();
+
+        // Bulk load existing users and employees in memory (prevents N+1 queries)
+        $existingUsers = User::withoutGlobalScopes()
+            ->whereIn('email', $emails)
+            ->get()
+            ->keyBy('email');
+
+        $existingEmployees = Employee::whereIn('email', $emails)
+            ->get()
+            ->keyBy('email');
+
+        // Hash default password once (prevents expensive bcrypt calls inside the loop)
+        $defaultPasswordHash = Hash::make('HumaNodePass123!');
+
+        DB::transaction(function () use ($rows, $companyId, $existingUsers, $existingEmployees, $defaultPasswordHash) {
             foreach ($rows as $row) {
                 $email = $row['email'] ?? null;
                 if (!$email) {
@@ -39,7 +54,7 @@ class EmployeeImport implements ToCollection, WithHeadingRow
                 }
 
                 // Check if email already registered in system users
-                $user = User::withoutGlobalScopes()->where('email', $email)->first();
+                $user = $existingUsers->get($email);
                 
                 if (!$user) {
                     // 1. Create a user account
@@ -48,17 +63,20 @@ class EmployeeImport implements ToCollection, WithHeadingRow
                         'company_id' => $companyId,
                         'name' => ($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''),
                         'email' => $email,
-                        'password' => Hash::make('HumaNodePass123!'), // Default password
+                        'password' => $defaultPasswordHash,
                         'is_active' => true,
                     ]);
                     $user->assignRole('Employee');
+
+                    // Add to local cache to handle sheet duplicates
+                    $existingUsers->put($email, $user);
                 }
 
                 // 2. Check if employee profile already exists
-                $employee = Employee::where('email', $email)->first();
+                $employee = $existingEmployees->get($email);
 
                 if (!$employee) {
-                    Employee::create([
+                    $employee = Employee::create([
                         'company_id' => $companyId,
                         'user_id' => $user->id,
                         'first_name' => $row['first_name'] ?? '',
@@ -68,6 +86,9 @@ class EmployeeImport implements ToCollection, WithHeadingRow
                         'joining_date' => isset($row['joining_date']) ? now()->parse($row['joining_date']) : now(),
                         'status' => $row['status'] ?? 'Active',
                     ]);
+
+                    // Add to local cache
+                    $existingEmployees->put($email, $employee);
                 }
             }
         });

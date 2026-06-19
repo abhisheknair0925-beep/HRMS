@@ -12,6 +12,16 @@ export const Profile: React.FC = () => {
   const [emergencyRelationship, setEmergencyRelationship] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   
+  // Prior Employment History States
+  const [employmentHistory, setEmploymentHistory] = useState<Array<{ company_name: string; designation: string; start_date: string; end_date?: string | null; description?: string }>>([]);
+  const [showWorkHistoryModal, setShowWorkHistoryModal] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [newCompany, setNewCompany] = useState('');
+  const [newDesignation, setNewDesignation] = useState('');
+  const [newStartDate, setNewStartDate] = useState('');
+  const [newEndDate, setNewEndDate] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -25,6 +35,7 @@ export const Profile: React.FC = () => {
         setBankName(emp.bank_details?.bank_name || '');
         setAccountNumber(emp.bank_details?.account_number || '');
         setIfscCode(emp.bank_details?.ifsc_code || '');
+        setEmploymentHistory(emp.employment_history || []);
         
         const emergency = emp.emergency_contacts?.[0] || {};
         setEmergencyName(emergency.name || '');
@@ -48,7 +59,8 @@ export const Profile: React.FC = () => {
         ifsc_code: ifscCode,
         emergency_name: emergencyName,
         emergency_relationship: emergencyRelationship,
-        emergency_phone: emergencyPhone
+        emergency_phone: emergencyPhone,
+        employment_history: employmentHistory
       });
       setStatusMsg('Your profile settings have been updated successfully.');
     } catch (err: unknown) {
@@ -57,6 +69,48 @@ export const Profile: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAddOrEditWorkHistory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompany || !newDesignation || !newStartDate) return;
+
+    const entry = {
+      company_name: newCompany,
+      designation: newDesignation,
+      start_date: newStartDate,
+      end_date: newEndDate || null,
+      description: newDescription
+    };
+
+    if (editingIndex !== null) {
+      setEmploymentHistory(prev => prev.map((item, idx) => idx === editingIndex ? entry : item));
+    } else {
+      setEmploymentHistory(prev => [...prev, entry]);
+    }
+
+    setNewCompany('');
+    setNewDesignation('');
+    setNewStartDate('');
+    setNewEndDate('');
+    setNewDescription('');
+    setShowWorkHistoryModal(false);
+    setEditingIndex(null);
+  };
+
+  const handleEditWorkHistoryClick = (idx: number) => {
+    const entry = employmentHistory[idx];
+    setNewCompany(entry.company_name);
+    setNewDesignation(entry.designation);
+    setNewStartDate(entry.start_date);
+    setNewEndDate(entry.end_date || '');
+    setNewDescription(entry.description || '');
+    setEditingIndex(idx);
+    setShowWorkHistoryModal(true);
+  };
+
+  const handleDeleteWorkHistory = (idx: number) => {
+    setEmploymentHistory(prev => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -166,6 +220,65 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
+            {/* Work History */}
+            <div>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2 mb-4">
+                <h4 className="text-xs font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Prior Employment History</h4>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setEditingIndex(null);
+                    setNewCompany('');
+                    setNewDesignation('');
+                    setNewStartDate('');
+                    setNewEndDate('');
+                    setNewDescription('');
+                    setShowWorkHistoryModal(true);
+                  }}
+                  className="px-2.5 py-1.5 bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 border border-primary-500/20 font-bold rounded-lg text-[10px] cursor-pointer transition-colors"
+                >
+                  + Add Previous Job
+                </button>
+              </div>
+
+              {employmentHistory.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">No prior work history records added.</p>
+              ) : (
+                <div className="space-y-3">
+                  {employmentHistory.map((history, idx) => (
+                    <div key={idx} className="p-4 bg-slate-100/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 rounded-2xl flex justify-between items-start">
+                      <div className="text-xs space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">{history.designation}</p>
+                        <p className="text-[10px] text-slate-400 font-semibold">{history.company_name}</p>
+                        <p className="text-[9px] text-slate-500 mt-1">
+                          Dates: {new Date(history.start_date).toLocaleDateString()} to {history.end_date ? new Date(history.end_date).toLocaleDateString() : 'Present'}
+                        </p>
+                        {history.description && (
+                          <p className="text-[10px] text-slate-500 italic mt-2 leading-relaxed">"{history.description}"</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 text-[9px] font-bold uppercase tracking-wider">
+                        <button 
+                          type="button"
+                          onClick={() => handleEditWorkHistoryClick(idx)}
+                          className="px-2 py-1 border border-slate-200 dark:border-slate-800 hover:border-primary-500 rounded-lg text-slate-400 hover:text-primary-500 cursor-pointer transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => handleDeleteWorkHistory(idx)}
+                          className="px-2 py-1 border border-slate-200 dark:border-slate-800 hover:border-danger rounded-lg text-slate-400 hover:text-danger cursor-pointer transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Actions button */}
             <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800/80">
               <button type="submit" 
@@ -179,6 +292,57 @@ export const Profile: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Work History Form Modal */}
+      {showWorkHistoryModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowWorkHistoryModal(false)}></div>
+          <div className="glass-panel w-full max-w-lg p-6 bg-white/90 dark:bg-slate-900/90 shadow-2xl relative z-10 border border-white/10 mx-auto">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest border-b border-slate-200 dark:border-slate-800/80 pb-3 mb-4">
+              {editingIndex !== null ? 'Edit Previous Job Details' : 'Add Previous Job Details'}
+            </h3>
+            <form onSubmit={handleAddOrEditWorkHistory} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Company Name</label>
+                  <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} className="glass-input text-xs" placeholder="Google Inc." required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Designation</label>
+                  <input type="text" value={newDesignation} onChange={(e) => setNewDesignation(e.target.value)} className="glass-input text-xs" placeholder="Software Engineer" required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Start Date</label>
+                  <input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} className="glass-input text-xs" required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">End Date (Leave blank if present)</label>
+                  <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} className="glass-input text-xs" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-400 uppercase">Job Description / Responsibilities</label>
+                <textarea 
+                  value={newDescription} 
+                  onChange={(e) => setNewDescription(e.target.value)} 
+                  className="glass-input text-xs resize-none" 
+                  rows={3} 
+                  placeholder="Developed frontend systems using React and TypeScript..." 
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/80">
+                <button type="button" onClick={() => setShowWorkHistoryModal(false)} className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-primary-500 text-slate-950 font-bold rounded-lg text-xs btn-glow cursor-pointer">
+                  {editingIndex !== null ? 'Save Changes' : 'Add Experience'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -4,7 +4,6 @@ import api from '../lib/api';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Calendar, CheckCircle, Clock, Megaphone, ChevronRight, Briefcase, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import Employees from './Employees';
 
 interface DashboardStats {
@@ -65,7 +64,8 @@ export const Dashboard: React.FC = () => {
     fetchDashboardStats();
   }, [user]);
 
-  const triggerConfetti = () => {
+  const triggerConfetti = async () => {
+    const { default: confetti } = await import('canvas-confetti');
     confetti({
       particleCount: 100,
       spread: 70,

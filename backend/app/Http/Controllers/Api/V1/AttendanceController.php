@@ -26,11 +26,24 @@ class AttendanceController extends Controller
      */
     public function clockIn(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $validated = $request->validate([
             'employee_id' => 'required|uuid|exists:employees,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
         ]);
+
+        // Standard employees can only check in for themselves
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
+                return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+            }
+        }
 
         $log = $this->attendanceService->clockIn(
             $validated['employee_id'],
@@ -50,11 +63,24 @@ class AttendanceController extends Controller
      */
     public function clockOut(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $validated = $request->validate([
             'employee_id' => 'required|uuid|exists:employees,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
         ]);
+
+        // Standard employees can only check out for themselves
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
+                return $this->errorResponse('Access denied. You can only record attendance for yourself.', 403);
+            }
+        }
 
         $log = $this->attendanceService->clockOut(
             $validated['employee_id'],
@@ -74,6 +100,11 @@ class AttendanceController extends Controller
      */
     public function regularize(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $validated = $request->validate([
             'employee_id' => 'required|uuid|exists:employees,id',
             'requested_date' => 'required|date',
@@ -81,6 +112,14 @@ class AttendanceController extends Controller
             'requested_clock_out' => 'nullable|date_format:H:i:s',
             'reason' => 'required|string|max:500',
         ]);
+
+        // Standard employees can only regularize for themselves
+        if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
+                return $this->errorResponse('Access denied. You can only submit attendance corrections for yourself.', 403);
+            }
+        }
 
         $regularization = $this->attendanceService->requestRegularization(
             $validated['employee_id'],
@@ -100,6 +139,11 @@ class AttendanceController extends Controller
      */
     public function regularizationIndex(): JsonResponse
     {
+        $user = auth()->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            return $this->errorResponse('Access denied. Only Admins, HR, or Managers can view pending corrections.', 403);
+        }
+
         $requests = AttendanceRegularization::with('employee')->where('status', 'Pending')->get();
         return $this->successResponse($requests, 'Pending correction requests retrieved.');
     }
@@ -113,7 +157,17 @@ class AttendanceController extends Controller
      */
     public function approveRegularization(Request $request, string $id): JsonResponse
     {
-        $approverId = $request->user()?->id ?? '00000000-0000-0000-0000-000000000000'; // Default admin fallback
+        $user = $request->user();
+        if (!$user || !$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            return $this->errorResponse('Access denied. Only Admins, HR, or Managers can approve corrections.', 403);
+        }
+
+        $regularizationRequest = AttendanceRegularization::find($id);
+        if (!$regularizationRequest || $regularizationRequest->company_id !== $user->company_id) {
+            return $this->errorResponse('Regularization request not found or unauthorized.', 404);
+        }
+
+        $approverId = $user->id;
         
         $regularization = $this->attendanceService->approveRegularization($id, $approverId);
 
@@ -128,11 +182,33 @@ class AttendanceController extends Controller
      */
     public function report(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated.', 401);
+        }
+
         $request->validate([
             'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
+
+        // If querying a specific employee, standard employees can only query themselves
+        if ($request->employee_id && !$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee || $userEmployee->id !== $request->employee_id) {
+                return $this->errorResponse('Access denied. You can only view your own attendance metrics.', 403);
+            }
+        }
+
+        // If no employee_id is supplied, standard employees are forced to query themselves
+        if (!$request->employee_id && !$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
+            $userEmployee = $user->employee;
+            if (!$userEmployee) {
+                return $this->errorResponse('Access denied.', 403);
+            }
+            $request->merge(['employee_id' => $userEmployee->id]);
+        }
 
         $query = AttendanceLog::with('employee')
             ->whereBetween('log_date', [$request->start_date, $request->end_date]);
