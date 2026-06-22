@@ -151,6 +151,7 @@ Route::middleware(['auth:sanctum', TenantMiddleware::class])->group(function () 
         Route::delete('leave-policies/{id}', [LeavePolicyController::class, 'destroy']);
     });
     Route::post('leaves/apply', [LeaveRequestController::class, 'apply']);
+    Route::post('leave/apply', [LeaveRequestController::class, 'apply']);
     Route::get('leaves/pending', [LeaveRequestController::class, 'pendingList']);
     Route::post('leaves/{id}/approve', [LeaveRequestController::class, 'approve']);
     Route::post('leaves/{id}/reject', [LeaveRequestController::class, 'reject']);
