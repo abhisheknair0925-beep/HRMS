@@ -37,6 +37,8 @@ class StoreEmployeeRequest extends FormRequest
             'status' => 'sometimes|required|string|in:Active,Probation,Suspended,Terminated',
             'department_id' => 'nullable|uuid',
             'designation_id' => 'nullable|uuid',
+            'manager_id' => 'nullable|uuid|exists:users,id',
+            'role_name' => 'nullable|string|max:100',
 
             // JSON validations
             'personal_info' => 'nullable|array',

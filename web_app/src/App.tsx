@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-
 // Lazy load pages to support bundle chunk-splitting
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -18,6 +17,8 @@ const Payroll = lazy(() => import('./pages/Payroll'));
 const OrgChartPage = lazy(() => import('./pages/OrgChartPage'));
 const LeavePolicies = lazy(() => import('./pages/LeavePolicies'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Reports = lazy(() => import('./pages/Reports'));
 
 export const App: React.FC = () => {
   return (
@@ -51,6 +52,8 @@ export const App: React.FC = () => {
                 <Route path="/admin/org-chart" element={<OrgChartPage />} />
                 <Route path="/admin/leave-policies" element={<LeavePolicies />} />
                 <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+                <Route path="/admin/settings" element={<Settings />} />
+                <Route path="/admin/reports" element={<Reports />} />
               </Route>
             </Route>
 

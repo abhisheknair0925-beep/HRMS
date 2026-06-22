@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../lib/api';
 import { FileText, Printer, FileDown, CheckCircle } from 'lucide-react';
 
 interface EmployeeSimple {
@@ -9,14 +10,9 @@ interface EmployeeSimple {
   department: string;
 }
 
-const mockEmployees: EmployeeSimple[] = [
-  { id: '1', name: 'John Employee', employee_id: 'EMP-2026-0002', title: 'Frontend Developer', department: 'Software Engineering' },
-  { id: '2', name: 'Sarah Manager', employee_id: 'EMP-2026-0001', title: 'Senior Product Manager', department: 'Product Management' },
-  { id: '3', name: 'Sarah HR', employee_id: 'EMP-2026-0003', title: 'HR Director', department: 'Human Resources' }
-];
-
 export const DocumentCenter: React.FC = () => {
-  const [empId, setEmpId] = useState('1');
+  const [employees, setEmployees] = useState<EmployeeSimple[]>([]);
+  const [empId, setEmpId] = useState('');
   const [template, setTemplate] = useState<'offer' | 'appointment' | 'salary' | 'promotion' | 'warning' | 'relieving'>('offer');
   
   // Dynamic parameters
@@ -28,11 +24,67 @@ export const DocumentCenter: React.FC = () => {
   const [relievingDate, setRelievingDate] = useState('2026-08-01');
   
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const selectedEmp = mockEmployees.find(e => e.id === empId) || mockEmployees[0];
+  const selectedEmp = employees.find(e => e.id === empId) || employees[0];
 
-  const handleGenerate = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const res = await api.get('/employees');
+        const loadedEmployees = res.data.data.data ?? [];
+        const mappedEmployees = loadedEmployees.map((employee: any) => ({
+          id: employee.id,
+          name: `${employee.first_name} ${employee.last_name}`,
+          employee_id: employee.employee_id,
+          title: employee.designation?.title ?? 'Team Member',
+          department: employee.department?.name ?? 'Unassigned',
+        }));
+        setEmployees(mappedEmployees);
+        setEmpId(mappedEmployees[0]?.id ?? '');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEmployees();
+  }, []);
+
+  const templateTitle = {
+    offer: 'Offer Letter',
+    appointment: 'Appointment Letter',
+    salary: 'Salary Revision Notice',
+    promotion: 'Promotion Letter',
+    warning: 'Written Warning Letter',
+    relieving: 'Experience & Relieving Certificate',
+  }[template];
+
+  const buildGeneratedContent = () => {
+    if (!selectedEmp) return '';
+
+    return [
+      `${templateTitle} for ${selectedEmp.name}`,
+      `Employee ID: ${selectedEmp.employee_id}`,
+      `Role: ${selectedEmp.title}`,
+      `Department: ${selectedEmp.department}`,
+      `Effective Date: ${template === 'relieving' ? relievingDate : effectiveDate}`,
+      `Current Salary: ${salary}`,
+      `Revised Salary: ${revisedSalary}`,
+      `New Title: ${newTitle}`,
+      `Warning Reason: ${warningReason}`,
+    ].join('\n');
+  };
+
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEmp) return;
+
+    await api.post('/documents/generate', {
+      employee_id: selectedEmp.id,
+      template,
+      title: `${templateTitle} - ${selectedEmp.name}`,
+      content: buildGeneratedContent(),
+    });
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
   };
@@ -44,6 +96,7 @@ export const DocumentCenter: React.FC = () => {
   // Get Letter Content template based on choice
   const renderLetterContent = () => {
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    if (!selectedEmp) return null;
     switch (template) {
       case 'offer':
         return (
@@ -166,6 +219,10 @@ export const DocumentCenter: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return <div className="text-center py-12 text-slate-400 text-sm">Loading document center...</div>;
+  }
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Title */}
@@ -201,7 +258,7 @@ export const DocumentCenter: React.FC = () => {
                   className="glass-input text-xs"
                   required
                 >
-                  {mockEmployees.map(e => (
+                  {employees.map(e => (
                     <option key={e.id} value={e.id}>{e.name} ({e.employee_id})</option>
                   ))}
                 </select>

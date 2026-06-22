@@ -26,14 +26,20 @@ class LeaveEncashmentController extends Controller
     public function requestEncashment(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'employee_id' => 'required|uuid|exists:employees,id',
+            'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'leave_policy_id' => 'required|uuid|exists:leave_policies,id',
             'days_to_encash' => 'required|numeric|min:0.5',
             'amount_per_day' => 'required|numeric|min:0',
         ]);
 
+        $employeeId = $validated['employee_id'] ?? $request->user()?->employee?->id;
+
+        if (!$employeeId) {
+            return $this->errorResponse('Employee profile not found.', 422);
+        }
+
         $encashment = $this->leaveService->requestEncashment(
-            $validated['employee_id'],
+            $employeeId,
             $validated['leave_policy_id'],
             (float) $validated['days_to_encash'],
             (float) $validated['amount_per_day']
@@ -53,9 +59,25 @@ class LeaveEncashmentController extends Controller
     {
         $approverId = $request->user()?->id ?? '00000000-0000-0000-0000-000000000000'; // Admin fallback
         
-        $encashment = $this->leaveService->approveEncashment($id, $approverId);
+        $encashment = $this->leaveService->approveEncashment($id, $approverId)->load(['employee', 'leavePolicy']);
 
         return $this->successResponse($encashment, 'Encashment approved and balance updated successfully.');
+    }
+
+    /**
+     * Reject a pending leave encashment.
+     *
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function rejectEncashment(Request $request, string $id): JsonResponse
+    {
+        $approverId = $request->user()?->id ?? '00000000-0000-0000-0000-000000000000'; // Admin fallback
+
+        $encashment = $this->leaveService->rejectEncashment($id, $approverId)->load(['employee', 'leavePolicy']);
+
+        return $this->successResponse($encashment, 'Encashment rejected successfully.');
     }
 
     /**

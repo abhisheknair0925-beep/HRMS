@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\CompanySettingController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EmployeeController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\DesignationController;
@@ -18,7 +19,17 @@ use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\LeavePolicyController;
 use App\Http\Controllers\Api\V1\LeaveRequestController;
 use App\Http\Controllers\Api\V1\LeaveEncashmentController;
+use App\Http\Controllers\Api\V1\ManagerDashboardController;
+use App\Http\Controllers\Api\V1\GeneratedDocumentController;
+use App\Http\Controllers\Api\V1\CompanyHolidayController;
+use App\Http\Controllers\Api\V1\CompOffRequestController;
+use App\Http\Controllers\Api\V1\PerformanceReviewController;
+use App\Http\Controllers\Api\V1\EmployeeMessageController;
 use App\Http\Controllers\Api\V1\PerformanceAppraisalController;
+use App\Http\Controllers\Api\V1\AppreciationController;
+use App\Http\Controllers\Api\V1\FeedController;
+use App\Http\Controllers\Api\V1\OnboardingCandidateController;
+use App\Http\Controllers\Api\V1\PayrollController;
 use App\Http\Middleware\TenantMiddleware;
 
 /*
@@ -63,6 +74,17 @@ Route::middleware(['auth:sanctum', TenantMiddleware::class])->group(function () 
         Route::put('settings', [CompanySettingController::class, 'update']);
     });
 
+    Route::get('holidays', [CompanyHolidayController::class, 'index']);
+    Route::post('holidays', [CompanyHolidayController::class, 'store']);
+
+    // Role Dashboards
+    Route::get('dashboard/admin', [DashboardController::class, 'admin']);
+    Route::get('dashboard/hr', [DashboardController::class, 'hr']);
+    Route::get('manager/dashboard', [ManagerDashboardController::class, 'dashboard']);
+    Route::post('manager/leaves/{id}/approve', [ManagerDashboardController::class, 'approveLeave']);
+    Route::post('manager/leaves/{id}/reject', [ManagerDashboardController::class, 'rejectLeave']);
+    Route::put('manager/direct-reports/{employeeId}/shift', [ManagerDashboardController::class, 'updateShift']);
+
     // Branches CRUD (GET open, write restricted)
     Route::get('branches', [BranchController::class, 'index']);
     Route::get('branches/{id}', [BranchController::class, 'show']);
@@ -80,6 +102,9 @@ Route::middleware(['auth:sanctum', TenantMiddleware::class])->group(function () 
     });
     
     // Employee photo and documents (has internal BOLA checks, allows Employee/Manager/HR/Admin)
+    Route::post('documents/generate', [GeneratedDocumentController::class, 'store']);
+    Route::get('employees/{employeeId}/messages', [EmployeeMessageController::class, 'index']);
+    Route::post('employees/{employeeId}/messages', [EmployeeMessageController::class, 'store']);
     Route::post('employees/{id}/photo', [EmployeeController::class, 'uploadPhoto']);
     Route::post('employees/{id}/documents', [EmployeeController::class, 'uploadDocument']);
     Route::apiResource('employees', EmployeeController::class);
@@ -133,11 +158,41 @@ Route::middleware(['auth:sanctum', TenantMiddleware::class])->group(function () 
     Route::post('leaves/encash', [LeaveEncashmentController::class, 'requestEncashment'])->middleware('role:Employee');
     Route::get('leaves/encashments/pending', [LeaveEncashmentController::class, 'indexPending'])->middleware('role:Admin|HR|Manager');
     Route::post('leaves/encashments/{id}/approve', [LeaveEncashmentController::class, 'approveEncashment'])->middleware('role:Admin|HR|Manager');
+    Route::post('leaves/encashments/{id}/reject', [LeaveEncashmentController::class, 'rejectEncashment'])->middleware('role:Admin|HR|Manager');
+    Route::get('comp-offs', [CompOffRequestController::class, 'index']);
+    Route::post('comp-offs', [CompOffRequestController::class, 'store']);
+    Route::post('comp-offs/{id}/approve', [CompOffRequestController::class, 'approve']);
+    Route::post('comp-offs/{id}/reject', [CompOffRequestController::class, 'reject']);
+
+    // Performance
+    Route::get('performance-reviews', [PerformanceReviewController::class, 'index']);
+    Route::post('performance-reviews', [PerformanceReviewController::class, 'store']);
 
     // Performance Appraisals
     Route::get('employees/{employee_id}/appraisals', [PerformanceAppraisalController::class, 'index']);
     Route::post('employees/{employee_id}/appraisals', [PerformanceAppraisalController::class, 'store']);
     Route::get('employees/{employee_id}/appraisals/report', [PerformanceAppraisalController::class, 'report']);
+
+    // Social Appreciations
+    Route::get('appreciations', [AppreciationController::class, 'index']);
+    Route::post('appreciations', [AppreciationController::class, 'store']);
+
+    // Social Engagement Feed
+    Route::get('ess/feed', [FeedController::class, 'index']);
+
+    // Onboarding Candidates
+    Route::get('onboarding/candidates', [OnboardingCandidateController::class, 'index']);
+    Route::post('onboarding/candidates', [OnboardingCandidateController::class, 'store']);
+    Route::get('onboarding/candidates/{id}', [OnboardingCandidateController::class, 'show']);
+    Route::put('onboarding/candidates/{id}', [OnboardingCandidateController::class, 'update']);
+    Route::delete('onboarding/candidates/{id}', [OnboardingCandidateController::class, 'destroy']);
+    Route::post('onboarding/candidates/{id}/verify-docs', [OnboardingCandidateController::class, 'verifyDocs']);
+    Route::post('onboarding/candidates/{id}/generate-id', [OnboardingCandidateController::class, 'generateId']);
+
+    // Payroll Setup
+    Route::get('payroll', [PayrollController::class, 'index']);
+    Route::put('payroll/{id}', [PayrollController::class, 'update']);
+    Route::post('payroll/generate', [PayrollController::class, 'generatePayslips']);
 
     // ESS API V1 Routes
     Route::get('ess/dashboard', [\App\Http\Controllers\Api\V1\EssApiController::class, 'dashboard']);

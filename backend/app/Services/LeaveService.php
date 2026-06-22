@@ -268,4 +268,36 @@ class LeaveService
             return $encashment;
         });
     }
+
+    /**
+     * Reject pending leave encashment.
+     *
+     * @param string $encashmentId
+     * @param string $approverId
+     * @return LeaveEncashment
+     * @throws BusinessException
+     */
+    public function rejectEncashment(string $encashmentId, string $approverId): LeaveEncashment
+    {
+        $encashment = LeaveEncashment::find($encashmentId);
+        if (!$encashment) {
+            throw new BusinessException("Encashment request not found.", 404);
+        }
+
+        if ($encashment->status !== 'Pending') {
+            throw new BusinessException("This encashment request has already been processed.", 422);
+        }
+
+        $encashment->update([
+            'status' => 'Rejected',
+            'approved_by' => $approverId,
+        ]);
+
+        activity()
+            ->performedOn($encashment)
+            ->withProperties(['rejected_by' => $approverId])
+            ->log('Leave encashment request rejected');
+
+        return $encashment;
+    }
 }

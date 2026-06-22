@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../lib/api';
 import { 
   Users, Calendar, Clock, UserCheck, ShieldAlert
 } from 'lucide-react';
@@ -7,7 +8,8 @@ interface TeamMember {
   id: string;
   name: string;
   role: string;
-  shift: 'General Shift' | 'Night Shift' | 'Morning Shift';
+  shift_id: string | null;
+  shift: string;
   todayStatus: 'Present' | 'Late' | 'Absent' | 'Not Checked-In';
   clockInTime: string | null;
   timesheet: Record<string, number>; // hours worked for Mon-Fri
@@ -24,87 +26,118 @@ interface TeamLeaveRequest {
   status: 'Approved' | 'Pending' | 'Rejected';
 }
 
-export const ManagerDashboard: React.FC = () => {
-  const [team, setTeam] = useState<TeamMember[]>([
-    {
-      id: 't1',
-      name: 'John Employee',
-      role: 'Frontend Developer',
-      shift: 'General Shift',
-      todayStatus: 'Late',
-      clockInTime: '09:40 AM',
-      timesheet: { Mon: 8.5, Tue: 9.0, Wed: 8.0, Thu: 8.2, Fri: 8.0 }
-    },
-    {
-      id: 't2',
-      name: 'Alice Developer',
-      role: 'Backend Engineer',
-      shift: 'General Shift',
-      todayStatus: 'Present',
-      clockInTime: '08:50 AM',
-      timesheet: { Mon: 9.0, Tue: 9.2, Wed: 8.5, Thu: 8.0, Fri: 8.0 }
-    },
-    {
-      id: 't3',
-      name: 'David Analyst',
-      role: 'QA Automation Engineer',
-      shift: 'Morning Shift',
-      todayStatus: 'Not Checked-In',
-      clockInTime: null,
-      timesheet: { Mon: 8.0, Tue: 8.0, Wed: 8.0, Thu: 8.0, Fri: 0 }
-    }
-  ]);
+interface ShiftOption {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
 
-  const [leaves, setLeaves] = useState<TeamLeaveRequest[]>([
-    {
-      id: 'l1',
-      employee_name: 'John Employee',
-      policy_name: 'Casual Leave',
-      start_date: '2026-06-25',
-      end_date: '2026-06-25',
-      days: 1,
-      reason: 'Personal work at the municipal registry office.',
-      status: 'Pending'
-    },
-    {
-      id: 'l2',
-      employee_name: 'Alice Developer',
-      policy_name: 'Annual Leave',
-      start_date: '2026-07-10',
-      end_date: '2026-07-15',
-      days: 5,
-      reason: 'Family summer vacation trip.',
-      status: 'Pending'
-    }
-  ]);
+interface ManagerDashboardPayload {
+  team: TeamMember[];
+  leave_requests: TeamLeaveRequest[];
+  shifts: ShiftOption[];
+  summary: {
+    checked_in_count: number;
+    total_team_count: number;
+    avg_weekly_hours: number;
+    pending_leave_requests: number;
+  };
+}
+
+export const ManagerDashboard: React.FC = () => {
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [leaves, setLeaves] = useState<TeamLeaveRequest[]>([]);
+  const [shifts, setShifts] = useState<ShiftOption[]>([]);
+  const [summary, setSummary] = useState<ManagerDashboardPayload['summary']>({
+    checked_in_count: 0,
+    total_team_count: 0,
+    avg_weekly_hours: 0,
+    pending_leave_requests: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Form states for Shift re-assignment
-  const [selectedMemberId, setSelectedMemberId] = useState('t1');
-  const [targetShift, setTargetShift] = useState<'General Shift' | 'Night Shift' | 'Morning Shift'>('General Shift');
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [targetShiftId, setTargetShiftId] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const checkedInCount = team.filter(t => t.todayStatus === 'Present' || t.todayStatus === 'Late').length;
-  const totalTeamCount = team.length;
-
-  const handleShiftChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    setTeam(prev => prev.map(member => {
-      if (member.id === selectedMemberId) {
-        return { ...member, shift: targetShift };
+  useEffect(() => {
+    const fetchManagerDashboard = async () => {
+      try {
+        const res = await api.get('/manager/dashboard');
+        const data: ManagerDashboardPayload = res.data.data;
+        setTeam(data.team);
+        setLeaves(data.leave_requests);
+        setShifts(data.shifts);
+        setSummary(data.summary);
+        setSelectedMemberId(data.team[0]?.id ?? '');
+        setTargetShiftId(data.team[0]?.shift_id ?? data.shifts[0]?.id ?? '');
+      } finally {
+        setLoading(false);
       }
-      return member;
-    }));
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    };
+
+    fetchManagerDashboard();
+  }, []);
+
+  const checkedInCount = summary.checked_in_count;
+  const totalTeamCount = summary.total_team_count;
+
+  const handleShiftChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMemberId || !targetShiftId) return;
+
+    setActionLoading('shift');
+    try {
+      const res = await api.put(`/manager/direct-reports/${selectedMemberId}/shift`, {
+        shift_id: targetShiftId,
+      });
+      const updatedMember: TeamMember = res.data.data;
+      setTeam(prev => prev.map(member => member.id === selectedMemberId ? updatedMember : member));
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleApproveLeave = (id: string) => {
-    setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'Approved' } : l));
+  const handleApproveLeave = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await api.post(`/manager/leaves/${id}/approve`);
+      const updatedLeave: TeamLeaveRequest = res.data.data;
+      setLeaves(prev => prev.map(l => l.id === id ? updatedLeave : l));
+      setSummary(prev => ({
+        ...prev,
+        pending_leave_requests: Math.max(prev.pending_leave_requests - 1, 0),
+      }));
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleRejectLeave = (id: string) => {
-    setLeaves(prev => prev.map(l => l.id === id ? { ...l, status: 'Rejected' } : l));
+  const handleRejectLeave = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await api.post(`/manager/leaves/${id}/reject`, {
+        rejection_reason: 'Rejected from Manager Self Service portal.',
+      });
+      const updatedLeave: TeamLeaveRequest = res.data.data;
+      setLeaves(prev => prev.map(l => l.id === id ? updatedLeave : l));
+      setSummary(prev => ({
+        ...prev,
+        pending_leave_requests: Math.max(prev.pending_leave_requests - 1, 0),
+      }));
+    } finally {
+      setActionLoading(null);
+    }
   };
+
+  if (loading) {
+    return <div className="text-center py-12 text-slate-400 text-sm">Loading manager portal...</div>;
+  }
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -139,7 +172,7 @@ export const ManagerDashboard: React.FC = () => {
           <div>
             <p className="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Avg Hours Worked (Weekly)</p>
             <p className="text-xl font-bold text-success mt-1">
-              34.5 Hrs / Member
+              {summary.avg_weekly_hours.toFixed(1)} Hrs / Member
             </p>
           </div>
         </div>
@@ -152,7 +185,7 @@ export const ManagerDashboard: React.FC = () => {
           <div>
             <p className="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Pending Approvals</p>
             <p className="text-xl font-bold text-warning mt-1">
-              {leaves.filter(l => l.status === 'Pending').length} Leave Requests
+              {summary.pending_leave_requests} Leave Requests
             </p>
           </div>
         </div>
@@ -170,7 +203,9 @@ export const ManagerDashboard: React.FC = () => {
             </h3>
 
             <div className="space-y-3">
-              {team.map(member => (
+              {team.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">No direct reports assigned.</p>
+              ) : team.map(member => (
                 <div key={member.id} className="flex justify-between items-center p-3.5 bg-slate-100/30 dark:bg-slate-950/15 border border-slate-200 dark:border-slate-800/60 rounded-xl text-xs font-semibold">
                   <div>
                     <p className="text-slate-800 dark:text-slate-200 font-bold">{member.name}</p>
@@ -208,7 +243,16 @@ export const ManagerDashboard: React.FC = () => {
             <form onSubmit={handleShiftChange} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
               <div>
                 <label className="text-[9px] font-bold text-slate-400 uppercase">Employee</label>
-                <select value={selectedMemberId} onChange={(e) => setSelectedMemberId(e.target.value)} className="glass-input text-xs">
+                <select
+                  value={selectedMemberId}
+                  onChange={(e) => {
+                    const member = team.find(item => item.id === e.target.value);
+                    setSelectedMemberId(e.target.value);
+                    setTargetShiftId(member?.shift_id ?? shifts[0]?.id ?? '');
+                  }}
+                  className="glass-input text-xs"
+                  disabled={team.length === 0}
+                >
                   {team.map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
@@ -216,14 +260,25 @@ export const ManagerDashboard: React.FC = () => {
               </div>
               <div>
                 <label className="text-[9px] font-bold text-slate-400 uppercase">Assign Shift</label>
-                <select value={targetShift} onChange={(e) => setTargetShift(e.target.value as 'General Shift' | 'Night Shift' | 'Morning Shift')} className="glass-input text-xs">
-                  <option value="General Shift">General Shift (09:00-18:00)</option>
-                  <option value="Morning Shift">Morning Shift (06:00-15:00)</option>
-                  <option value="Night Shift">Night Shift (22:00-06:00)</option>
+                <select
+                  value={targetShiftId}
+                  onChange={(e) => setTargetShiftId(e.target.value)}
+                  className="glass-input text-xs"
+                  disabled={shifts.length === 0}
+                >
+                  {shifts.map(shift => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.name} ({shift.start_time.slice(0, 5)}-{shift.end_time.slice(0, 5)})
+                    </option>
+                  ))}
                 </select>
               </div>
-              <button type="submit" className="w-full py-2.5 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider btn-glow transition-all cursor-pointer">
-                Update Roster
+              <button
+                type="submit"
+                disabled={!selectedMemberId || !targetShiftId || actionLoading === 'shift'}
+                className="w-full py-2.5 bg-primary-500 hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider btn-glow transition-all cursor-pointer"
+              >
+                {actionLoading === 'shift' ? 'Updating...' : 'Update Roster'}
               </button>
             </form>
           </div>
@@ -264,13 +319,15 @@ export const ManagerDashboard: React.FC = () => {
                       <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/50">
                         <button 
                           onClick={() => handleApproveLeave(request.id)}
-                          className="px-3 py-1 bg-success text-slate-950 font-black rounded-lg text-xs cursor-pointer"
+                          disabled={actionLoading === request.id}
+                          className="px-3 py-1 bg-success disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black rounded-lg text-xs cursor-pointer"
                         >
                           Approve
                         </button>
                         <button 
                           onClick={() => handleRejectLeave(request.id)}
-                          className="px-3 py-1 bg-danger text-white font-black rounded-lg text-xs cursor-pointer"
+                          disabled={actionLoading === request.id}
+                          className="px-3 py-1 bg-danger disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-lg text-xs cursor-pointer"
                         >
                           Reject
                         </button>

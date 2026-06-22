@@ -19,6 +19,35 @@ class AttendanceController extends Controller
     public function __construct(protected AttendanceService $attendanceService) {}
 
     /**
+     * Display a listing of attendance logs for the current employee.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+        if (!$employee) {
+            return $this->errorResponse('Employee profile not found.', 422);
+        }
+
+        $logs = AttendanceLog::where('employee_id', $employee->id)
+            ->orderBy('log_date', 'desc')
+            ->limit(30)
+            ->get();
+
+        $today = now()->toDateString();
+        $todayLog = AttendanceLog::where('employee_id', $employee->id)
+            ->where('log_date', $today)
+            ->first();
+
+        return $this->successResponse([
+            'logs' => $logs,
+            'today_log' => $todayLog,
+        ], 'Employee attendance history retrieved.');
+    }
+
+    /**
      * Trigger employee check-in log.
      *
      * @param Request $request

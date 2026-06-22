@@ -3,7 +3,8 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   Search, Users, Clock, 
-  MessageSquare, Send, Award, Star, Phone, Mail, Briefcase
+  MessageSquare, Send, Award, Star, Phone, Mail,
+  Plus, Trash2, Edit3, X, CheckCircle2, Briefcase
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 
@@ -16,10 +17,14 @@ interface EmployeeType {
   phone: string;
   status: 'Active' | 'Probation' | 'Suspended' | 'Terminated';
   joining_date: string;
-  department?: { name: string };
-  designation?: { title: string };
+  department_id?: string | null;
+  designation_id?: string | null;
+  manager_id?: string | null;
+  department?: { id?: string; name: string };
+  designation?: { id?: string; title: string };
   manager?: { name: string };
   user?: {
+    id?: string;
     roles: Array<{ name: string }>;
   };
   employment_history?: Array<{
@@ -46,6 +51,11 @@ interface AttendanceLogDetail {
   geofence: string;
 }
 
+interface DepartmentOption {
+  id: string;
+  name: string;
+}
+
 interface PerformanceAppraisalType {
   id: string;
   reviewer_name: string;
@@ -58,108 +68,24 @@ interface PerformanceAppraisalType {
   comment: string;
 }
 
-// Fallback Mock Employees matching Seeded accounts
-const mockEmployees: EmployeeType[] = [
-  {
-    id: 'emp-1',
-    employee_id: 'EMP-2026-0001',
-    first_name: 'Sarah',
-    last_name: 'Manager',
-    email: 'manager@humanode.net',
-    phone: '+1 555-0155',
-    status: 'Active',
-    joining_date: '2024-03-10',
-    department: { name: 'Product Management' },
-    designation: { title: 'Senior Product Manager' },
-    manager: { name: 'Admin User' },
-    user: { roles: [{ name: 'Manager' }] }
-  },
-  {
-    id: 'emp-2',
-    employee_id: 'EMP-2026-0002',
-    first_name: 'John',
-    last_name: 'Employee',
-    email: 'employee@humanode.net',
-    phone: '+1 555-0199',
-    status: 'Active',
-    joining_date: '2026-01-01',
-    department: { name: 'Software Engineering' },
-    designation: { title: 'Frontend Developer' },
-    manager: { name: 'Sarah Manager' },
-    user: { roles: [{ name: 'Employee' }] }
-  },
-  {
-    id: 'emp-3',
-    employee_id: 'EMP-2026-0003',
-    first_name: 'Sarah',
-    last_name: 'HR',
-    email: 'hr@humanode.net',
-    phone: '+1 555-0188',
-    status: 'Active',
-    joining_date: '2025-01-15',
-    department: { name: 'Human Resources' },
-    designation: { title: 'HR Director' },
-    manager: { name: 'Admin User' },
-    user: { roles: [{ name: 'HR' }] }
-  },
-  {
-    id: 'emp-4',
-    employee_id: 'EMP-2026-0004',
-    first_name: 'Admin',
-    last_name: 'User',
-    email: 'admin@humanode.net',
-    phone: '+1 555-0100',
-    status: 'Active',
-    joining_date: '2023-08-01',
-    department: { name: 'Executive Operations' },
-    designation: { title: 'Systems Administrator' },
-    manager: { name: 'None' },
-    user: { roles: [{ name: 'Admin' }] }
-  }
-];
+interface DesignationOption {
+  id: string;
+  title: string;
+  department_id?: string | null;
+}
 
-// Mock Attendance Logs for Selected Employee
-const mockAttendanceStats: Record<string, { present: number; late: number; absent: number; halfDay: number; logs: AttendanceLogDetail[] }> = {
-  'EMP-2026-0001': {
-    present: 20, late: 1, absent: 1, halfDay: 0,
-    logs: [
-      { date: '2026-06-17', clock_in: '08:55 AM', clock_out: '06:05 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-16', clock_in: '09:00 AM', clock_out: '06:00 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-15', clock_in: '09:15 AM', clock_out: '06:10 PM', status: 'Late', geofence: 'Verified' },
-      { date: '2026-06-14', clock_in: '08:50 AM', clock_out: '06:00 PM', status: 'Present', geofence: 'Verified' }
-    ]
-  },
-  'EMP-2026-0002': {
-    present: 18, late: 3, absent: 0, halfDay: 1,
-    logs: [
-      { date: '2026-06-17', clock_in: '09:40 AM', clock_out: '06:00 PM', status: 'Late', geofence: 'Verified' },
-      { date: '2026-06-16', clock_in: '09:05 AM', clock_out: '06:15 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-15', clock_in: '09:30 AM', clock_out: '06:00 PM', status: 'Late', geofence: 'Verified' },
-      { date: '2026-06-14', clock_in: '09:00 AM', clock_out: '01:00 PM', status: 'Half-Day', geofence: 'Verified' }
-    ]
-  },
-  'EMP-2026-0003': {
-    present: 21, late: 0, absent: 1, halfDay: 0,
-    logs: [
-      { date: '2026-06-17', clock_in: '08:45 AM', clock_out: '05:45 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-16', clock_in: '08:50 AM', clock_out: '05:55 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-15', clock_in: '--:--', clock_out: '--:--', status: 'Absent', geofence: 'Failed' },
-      { date: '2026-06-14', clock_in: '08:40 AM', clock_out: '05:50 PM', status: 'Present', geofence: 'Verified' }
-    ]
-  },
-  'EMP-2026-0004': {
-    present: 22, late: 0, absent: 0, halfDay: 0,
-    logs: [
-      { date: '2026-06-17', clock_in: '08:30 AM', clock_out: '07:00 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-16', clock_in: '08:35 AM', clock_out: '06:30 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-15', clock_in: '08:40 AM', clock_out: '06:45 PM', status: 'Present', geofence: 'Verified' },
-      { date: '2026-06-14', clock_in: '08:30 AM', clock_out: '06:30 PM', status: 'Present', geofence: 'Verified' }
-    ]
-  }
-};
+interface AttendanceStats {
+  present: number;
+  late: number;
+  absent: number;
+  halfDay: number;
+  logs: AttendanceLogDetail[];
+}
 
 export const Employees: React.FC = () => {
   const [employees, setEmployees] = useState<EmployeeType[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  const [designations, setDesignations] = useState<DesignationOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
@@ -251,6 +177,32 @@ export const Employees: React.FC = () => {
 
   const { user } = useAuth();
 
+  // CRUD States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [successAlert, setSuccessAlert] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const [addFirstName, setAddFirstName] = useState('');
+  const [addLastName, setAddLastName] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addPhone, setAddPhone] = useState('');
+  const [addRole, setAddRole] = useState('Employee');
+  const [addDept, setAddDept] = useState('');
+  const [addDesg, setAddDesg] = useState('');
+  const [addManager, setAddManager] = useState('');
+
+  const [editId, setEditId] = useState('');
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState('Employee');
+  const [editDept, setEditDept] = useState('');
+  const [editDesg, setEditDesg] = useState('');
+  const [editManager, setEditManager] = useState('');
+  const [activeAttendance, setActiveAttendance] = useState<AttendanceStats>({ present: 0, late: 0, absent: 0, halfDay: 0, logs: [] });
+
   // Custom States for Reviews
   const [quality, setQuality] = useState(4);
   const [productivity, setProductivity] = useState(4);
@@ -282,51 +234,155 @@ export const Employees: React.FC = () => {
   }, [selectedEmployee]);
 
   // Chat Interactive Engine
-  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({
-    'EMP-2026-0001': [
-      { id: '1', sender: 'employee', text: 'Hi Admin! Let me know if you need to review the Q3 product spec draft.', timestamp: '10:30 AM' },
-      { id: '2', sender: 'admin', text: 'Thanks Sarah. Please make sure the engineering leads have signed off first.', timestamp: '10:32 AM' }
-    ],
-    'EMP-2026-0002': [
-      { id: '1', sender: 'employee', text: 'Hey, I submitted my leave request for next week. Hope it is okay.', timestamp: 'Yesterday' },
-      { id: '2', sender: 'admin', text: 'I will check with your manager. Should be fine!', timestamp: 'Yesterday' }
-    ],
-    'EMP-2026-0003': [
-      { id: '1', sender: 'employee', text: 'Hi Admin, I completed updating the company documents locker.', timestamp: 'Monday' },
-      { id: '2', sender: 'admin', text: 'Perfect. Let us double check the security configurations.', timestamp: 'Monday' }
-    ],
-    'EMP-2026-0004': [
-      { id: '1', sender: 'admin', text: 'Is the dev server operational on port 8000?', timestamp: '09:00 AM' },
-      { id: '2', sender: 'employee', text: 'Yes, both Laravel API and Vite SPA built successfully.', timestamp: '09:02 AM' }
-    ]
-  });
+  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
 
   const [newMsg, setNewMsg] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const getRole = (emp: EmployeeType) => {
     return emp.user?.roles?.[0]?.name || 'Employee';
   };
 
+  const selectableManagers = employees.filter(emp => emp.user?.id);
+  const filteredAddDesignations = designations.filter(desg => !addDept || desg.department_id === addDept);
+  const filteredEditDesignations = designations.filter(desg => !editDept || desg.department_id === editDept);
+
+  const normalizeEmployee = (emp: EmployeeType): EmployeeType => ({
+    ...emp,
+    status: emp.status || 'Active',
+    department_id: emp.department_id ?? emp.department?.id ?? null,
+    designation_id: emp.designation_id ?? emp.designation?.id ?? null,
+    user: emp.user || { roles: [{ name: emp.email === 'admin@humanode.net' ? 'Admin' : emp.email === 'hr@humanode.net' ? 'HR' : emp.email === 'manager@humanode.net' ? 'Manager' : 'Employee' }] }
+  });
+
+  const employeePayload = (
+    firstName: string,
+    lastName: string,
+    email: string,
+    phone: string,
+    role: string,
+    departmentId: string,
+    designationId: string,
+    managerId: string,
+    joiningDate?: string,
+  ) => ({
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone,
+    role_name: role,
+    department_id: departmentId || null,
+    designation_id: designationId || null,
+    manager_id: managerId || null,
+    joining_date: joiningDate || new Date().toISOString().split('T')[0],
+    status: 'Active',
+  });
+
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addFirstName || !addLastName || !addEmail) return;
+
+    const res = await api.post('/employees', employeePayload(
+      addFirstName,
+      addLastName,
+      addEmail,
+      addPhone,
+      addRole,
+      addDept,
+      addDesg,
+      addManager,
+    ));
+    const newEmp = normalizeEmployee(res.data.data);
+    setEmployees(prev => [newEmp, ...prev]);
+    setSelectedEmployee(newEmp);
+    setShowAddModal(false);
+    
+    setAddFirstName('');
+    setAddLastName('');
+    setAddEmail('');
+    setAddPhone('');
+    setAddRole('Employee');
+    setAddDept(departments[0]?.id ?? '');
+    setAddDesg(designations[0]?.id ?? '');
+    setAddManager('');
+
+    setSuccessMsg('New employee profile created successfully in registry!');
+    setSuccessAlert(true);
+    setTimeout(() => setSuccessAlert(false), 3000);
+  };
+
+  const handleOpenEditModal = (emp: EmployeeType) => {
+    setEditId(emp.id);
+    setEditFirstName(emp.first_name);
+    setEditLastName(emp.last_name);
+    setEditEmail(emp.email);
+    setEditPhone(emp.phone);
+    setEditRole(getRole(emp));
+    setEditDept(emp.department_id || emp.department?.id || '');
+    setEditDesg(emp.designation_id || emp.designation?.id || '');
+    setEditManager(emp.manager_id || '');
+    setShowEditModal(true);
+  };
+
+  const handleUpdateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const original = employees.find(emp => emp.id === editId);
+    const res = await api.put(`/employees/${editId}`, employeePayload(
+      editFirstName,
+      editLastName,
+      editEmail,
+      editPhone,
+      editRole,
+      editDept,
+      editDesg,
+      editManager,
+      original?.joining_date,
+    ));
+    const updated = normalizeEmployee(res.data.data);
+    setEmployees(prev => prev.map(emp => emp.id === editId ? updated : emp));
+    if (selectedEmployee?.id === editId) {
+      setSelectedEmployee(updated);
+    }
+    setShowEditModal(false);
+    setSuccessMsg('Employee profile details updated successfully.');
+    setSuccessAlert(true);
+    setTimeout(() => setSuccessAlert(false), 3000);
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this employee record from the HRMS database?")) {
+      return;
+    }
+    await api.delete(`/employees/${id}`);
+    setEmployees(prev => prev.filter(emp => emp.id !== id));
+    setSelectedEmployee(null);
+    setSuccessMsg('Employee profile record has been deleted from registry.');
+    setSuccessAlert(true);
+    setTimeout(() => setSuccessAlert(false), 3000);
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await api.get('/employees');
-        const loadedData = res.data.data.data;
-        if (Array.isArray(loadedData) && loadedData.length > 0) {
-          const processed: EmployeeType[] = loadedData.map((e: EmployeeType) => ({
-            ...e,
-            status: e.status || 'Active',
-            user: e.user || { roles: [{ name: e.email === 'admin@humanode.net' ? 'Admin' : e.email === 'hr@humanode.net' ? 'HR' : e.email === 'manager@humanode.net' ? 'Manager' : 'Employee' }] }
-          }));
-          setEmployees(processed);
-        } else {
-          setEmployees(mockEmployees);
-        }
-      } catch {
-        await Promise.resolve();
-        setEmployees(mockEmployees);
+        const [employeeRes, departmentRes, designationRes] = await Promise.all([
+          api.get('/employees'),
+          api.get('/departments'),
+          api.get('/designations'),
+        ]);
+        const loadedEmployees = employeeRes.data.data.data;
+        const loadedDepartments = departmentRes.data.data;
+        const loadedDesignations = designationRes.data.data;
+
+        const processed = Array.isArray(loadedEmployees) ? loadedEmployees.map(normalizeEmployee) : [];
+        setEmployees(processed);
+        setDepartments(Array.isArray(loadedDepartments) ? loadedDepartments : []);
+        setDesignations(Array.isArray(loadedDesignations) ? loadedDesignations : []);
+        setAddDept(loadedDepartments?.[0]?.id ?? '');
+        setAddDesg(loadedDesignations?.[0]?.id ?? '');
+        setSelectedEmployee(processed[0] ?? null);
+      } catch (error) {
+        console.error('Failed to load employee management data', error);
+        setEmployees([]);
       } finally {
         setLoading(false);
       }
@@ -340,62 +396,84 @@ export const Employees: React.FC = () => {
   // Scroll Chat to Bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, isTyping, selectedEmployee]);
+  }, [chatMessages, selectedEmployee]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadAttendance = async () => {
+      if (!selectedEmployee) {
+        setActiveAttendance({ present: 0, late: 0, absent: 0, halfDay: 0, logs: [] });
+        return;
+      }
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 30);
+
+      try {
+        const res = await api.get('/attendance/report', {
+          params: {
+            employee_id: selectedEmployee.id,
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0],
+          },
+        });
+        const data = res.data.data;
+        setActiveAttendance({
+          present: data.total_present ?? 0,
+          late: data.total_late ?? 0,
+          absent: data.total_absent ?? 0,
+          halfDay: data.total_half_day ?? 0,
+          logs: (data.logs ?? []).map((log: any) => ({
+            date: log.log_date,
+            clock_in: log.clock_in ? new Date(log.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            clock_out: log.clock_out ? new Date(log.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+            status: log.status,
+            geofence: log.clock_in_latitude && log.clock_in_longitude ? 'Verified' : 'Not Captured',
+          })),
+        });
+      } catch (error) {
+        console.error('Failed to load employee attendance report', error);
+        setActiveAttendance({ present: 0, late: 0, absent: 0, halfDay: 0, logs: [] });
+      }
+    };
+
+    loadAttendance();
+  }, [selectedEmployee]);
+
+  useEffect(() => {
+    const loadEmployeeActivity = async () => {
+      if (!selectedEmployee) return;
+
+      try {
+        const messagesRes = await api.get(`/employees/${selectedEmployee.id}/messages`);
+        setChatMessages(prev => ({
+          ...prev,
+          [selectedEmployee.employee_id]: messagesRes.data.data ?? [],
+        }));
+      } catch (err) {
+        console.error('Failed to load employee messages:', err);
+      }
+    };
+
+    loadEmployeeActivity();
+  }, [selectedEmployee]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMsg.trim() || !selectedEmployee) return;
 
     const empId = selectedEmployee.employee_id;
-    const adminMsg: ChatMessage = {
-      id: String(Date.now()),
-      sender: 'admin',
-      text: newMsg.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    // Update messages
+    const res = await api.post(`/employees/${selectedEmployee.id}/messages`, {
+      message: newMsg.trim(),
+      sender_type: 'admin',
+    });
+    const adminMsg: ChatMessage = res.data.data;
     const currentMessages = chatMessages[empId] || [];
     setChatMessages({
       ...chatMessages,
       [empId]: [...currentMessages, adminMsg]
     });
     setNewMsg('');
-    setIsTyping(true);
-
-    // Dynamic Bot Chat Response based on employee role
-    setTimeout(() => {
-      const role = getRole(selectedEmployee);
-      let replyText: string;
-
-      const textLower = adminMsg.text.toLowerCase();
-      if (textLower.includes('hello') || textLower.includes('hi') || textLower.includes('hey')) {
-        replyText = `Hello Admin! Glad you reached out. Hope you are having a productive day.`;
-      } else if (textLower.includes('attendance') || textLower.includes('clock') || textLower.includes('late')) {
-        replyText = `Regarding attendance: I verified that my GPS coordinates matched the geofence perimeter correctly today. Let me know if you see any sync anomalies.`;
-      } else if (textLower.includes('performance') || textLower.includes('kpi') || textLower.includes('review')) {
-        replyText = `Thank you for reviewing my KPIs. I am focusing heavily on Q2 targets and appreciate any feedback you write on my review scorecard.`;
-      } else if (role === 'HR') {
-        replyText = `As HR director, I am currently organizing the employee document lockers and reviewing the pending leave policies. I will send you a sync report later today.`;
-      } else if (role === 'Manager') {
-        replyText = `Team operations are on track. I am reviewing the pending leave requests in the MSS portal right now and will make sure shift structures are covered.`;
-      } else {
-        replyText = `Understood. I will sync with my reporting manager on this and ensure we coordinate in our next daily standup.`;
-      }
-
-      const replyMsg: ChatMessage = {
-        id: String(Date.now() + 1),
-        sender: 'employee',
-        text: replyText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setChatMessages(prev => ({
-        ...prev,
-        [empId]: [...(prev[empId] || []), replyMsg]
-      }));
-      setIsTyping(false);
-    }, 1000);
   };
 
   const handleAddReview = async (e: React.FormEvent) => {
@@ -475,7 +553,7 @@ export const Employees: React.FC = () => {
 
   // Get active attendance logs and score history
   const activeEmpId = selectedEmployee?.employee_id || '';
-  const activeAttendance = selectedEmployee ? mockAttendanceStats[activeEmpId] || { present: 0, late: 0, absent: 0, halfDay: 0, logs: [] } : { present: 0, late: 0, absent: 0, halfDay: 0, logs: [] };
+  // activePerformance is state-controlled; activeAttendance is set in useEffect
   const latestPerformanceReview = activePerformance[0];
   const chartData = latestPerformanceReview ? [
     { name: 'Quality', score: latestPerformanceReview.quality_score },
@@ -498,6 +576,12 @@ export const Employees: React.FC = () => {
         </p>
       </div>
 
+      {successAlert && (
+        <div className="p-4 rounded-xl bg-success/20 border border-success/30 text-success text-xs font-semibold shadow-lg backdrop-blur-sm flex items-center gap-2">
+          <CheckCircle2 size={16} /> {successMsg}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left Side: Directory search and list (col-span-5) */}
@@ -505,17 +589,25 @@ export const Employees: React.FC = () => {
           <div className="glass-panel p-5 space-y-4">
             
             {/* Search inputs */}
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                <Search size={16} />
-              </span>
-              <input 
-                type="text" 
-                placeholder="Search by name or Employee ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="glass-input pl-10 text-xs" 
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-grow">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                  <Search size={16} />
+                </span>
+                <input 
+                  type="text" 
+                  placeholder="Search by name or Employee ID..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="glass-input pl-10 text-xs" 
+                />
+              </div>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="px-3.5 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1 cursor-pointer btn-glow"
+              >
+                <Plus size={14} /> Add
+              </button>
             </div>
 
             {/* Filters grid */}
@@ -654,17 +746,35 @@ export const Employees: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                    getRole(selectedEmployee) === 'Admin' ? 'bg-danger/10 text-danger' :
-                    getRole(selectedEmployee) === 'HR' ? 'bg-warning/10 text-warning' :
-                    getRole(selectedEmployee) === 'Manager' ? 'bg-secondary-500/10 text-secondary-500' : 'bg-primary-500/10 text-primary-500'
-                  }`}>
-                    {getRole(selectedEmployee)}
-                  </span>
-                  <span className="px-2.5 py-1 bg-success/15 text-success rounded-full text-[9px] font-black uppercase tracking-wider">
-                    {selectedEmployee.status}
-                  </span>
+                <div className="flex flex-col items-end gap-3 self-end sm:self-center">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      getRole(selectedEmployee) === 'Admin' ? 'bg-danger/10 text-danger' :
+                      getRole(selectedEmployee) === 'HR' ? 'bg-warning/10 text-warning' :
+                      getRole(selectedEmployee) === 'Manager' ? 'bg-secondary-500/10 text-secondary-500' : 'bg-primary-500/10 text-primary-500'
+                    }`}>
+                      {getRole(selectedEmployee)}
+                    </span>
+                    <span className="px-2.5 py-1 bg-success/15 text-success rounded-full text-[9px] font-black uppercase tracking-wider">
+                      {selectedEmployee.status}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleOpenEditModal(selectedEmployee)}
+                      className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-primary-500 rounded-xl text-slate-400 hover:text-primary-500 cursor-pointer transition-colors"
+                      title="Edit Profile"
+                    >
+                      <Edit3 size={12} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteEmployee(selectedEmployee.id)}
+                      className="p-1.5 border border-slate-200 dark:border-slate-800 hover:border-danger rounded-xl text-slate-400 hover:text-danger cursor-pointer transition-colors"
+                      title="Delete Profile"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1016,16 +1126,6 @@ export const Employees: React.FC = () => {
                       );
                     })}
 
-                    {/* Chatbot Typing Indicator bubble */}
-                    {isTyping && (
-                      <div className="mr-auto items-start flex flex-col max-w-[75%]">
-                        <div className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl rounded-tl-none flex items-center gap-1 animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"></span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce delay-100"></span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce delay-200"></span>
-                        </div>
-                      </div>
-                    )}
                     <div ref={chatEndRef}></div>
                   </div>
 
@@ -1176,6 +1276,209 @@ export const Employees: React.FC = () => {
         </div>
       )}
 
+      {/* Add Employee Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative transform overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl transition-all w-full max-w-lg">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
+                <h3 className="font-bold text-slate-100 text-sm flex items-center gap-1.5"><Users size={16} className="text-primary-500" /> Register New Employee</h3>
+                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-200 cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateEmployee} className="space-y-4 text-xs text-slate-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">First Name</label>
+                    <input type="text" value={addFirstName} onChange={(e) => setAddFirstName(e.target.value)} className="glass-input text-xs" placeholder="First Name" required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Last Name</label>
+                    <input type="text" value={addLastName} onChange={(e) => setAddLastName(e.target.value)} className="glass-input text-xs" placeholder="Last Name" required />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Work Email</label>
+                    <input type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} className="glass-input text-xs" placeholder="e.g. employee@humanode.net" required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Phone Number</label>
+                    <input type="text" value={addPhone} onChange={(e) => setAddPhone(e.target.value)} className="glass-input text-xs" placeholder="e.g. +1 555-0100" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Role Type</label>
+                    <select value={addRole} onChange={(e) => setAddRole(e.target.value)} className="glass-input text-xs" required>
+                      <option value="Admin">Admin</option>
+                      <option value="HR">HR</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Employee">Employee</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Reporting Manager</label>
+                    <select value={addManager} onChange={(e) => setAddManager(e.target.value)} className="glass-input text-xs" required>
+                      <option value="">None</option>
+                      {selectableManagers.map(manager => (
+                        <option key={manager.user?.id} value={manager.user?.id}>
+                          {manager.first_name} {manager.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Department Mapping</label>
+                    <select
+                      value={addDept}
+                      onChange={(e) => {
+                        const nextDept = e.target.value;
+                        setAddDept(nextDept);
+                        setAddDesg(designations.find(designation => designation.department_id === nextDept)?.id ?? '');
+                      }}
+                      className="glass-input text-xs"
+                      required
+                    >
+                      {departments.map(department => (
+                        <option key={department.id} value={department.id}>{department.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Job Designation</label>
+                    <select value={addDesg} onChange={(e) => setAddDesg(e.target.value)} className="glass-input text-xs" required>
+                      {filteredAddDesignations.map(designation => (
+                        <option key={designation.id} value={designation.id}>{designation.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-3 border-t border-slate-800">
+                  <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="submit" className="flex-1 py-2 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl text-xs btn-glow cursor-pointer">
+                    Register Employee
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative transform overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl transition-all w-full max-w-lg">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
+                <h3 className="font-bold text-slate-100 text-sm flex items-center gap-1.5"><Edit3 size={16} className="text-primary-500" /> Edit Employee Profile</h3>
+                <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-200 cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateEmployee} className="space-y-4 text-xs text-slate-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">First Name</label>
+                    <input type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} className="glass-input text-xs" required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Last Name</label>
+                    <input type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} className="glass-input text-xs" required />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Work Email</label>
+                    <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="glass-input text-xs" required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Phone Number</label>
+                    <input type="text" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="glass-input text-xs" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Role Type</label>
+                    <select value={editRole} onChange={(e) => setEditRole(e.target.value)} className="glass-input text-xs" required>
+                      <option value="Admin">Admin</option>
+                      <option value="HR">HR</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Employee">Employee</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Reporting Manager</label>
+                    <select value={editManager} onChange={(e) => setEditManager(e.target.value)} className="glass-input text-xs" required>
+                      <option value="">None</option>
+                      {selectableManagers
+                        .filter(manager => manager.id !== editId)
+                        .map(manager => (
+                          <option key={manager.user?.id} value={manager.user?.id}>
+                            {manager.first_name} {manager.last_name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Department Mapping</label>
+                    <select
+                      value={editDept}
+                      onChange={(e) => {
+                        const nextDept = e.target.value;
+                        setEditDept(nextDept);
+                        setEditDesg(designations.find(designation => designation.department_id === nextDept)?.id ?? '');
+                      }}
+                      className="glass-input text-xs"
+                      required
+                    >
+                      {departments.map(department => (
+                        <option key={department.id} value={department.id}>{department.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Job Designation</label>
+                    <select value={editDesg} onChange={(e) => setEditDesg(e.target.value)} className="glass-input text-xs" required>
+                      {filteredEditDesignations.map(designation => (
+                        <option key={designation.id} value={designation.id}>{designation.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-3 border-t border-slate-800">
+                  <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="submit" className="flex-1 py-2 bg-primary-500 hover:bg-primary-400 text-slate-950 font-bold rounded-xl text-xs btn-glow cursor-pointer">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

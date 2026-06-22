@@ -38,7 +38,10 @@ class AttendanceService
         }
 
         // 1. Geofence Perimeter check
-        if (!$this->engine->isWithinGeofence($lat, $lng)) {
+        $companySetting = \App\Models\CompanySetting::where('company_id', $employee->company_id)->first();
+        $allowFieldCheckin = $companySetting?->settings_data['allow_field_checkin'] ?? false;
+
+        if (!$allowFieldCheckin && !$this->engine->isWithinGeofence($lat, $lng)) {
             throw new BusinessException("Clock-in rejected: Location is outside the office allowable perimeter.", 422);
         }
 
@@ -91,7 +94,10 @@ class AttendanceService
         }
 
         // 1. Geofence Perimeter check
-        if (!$this->engine->isWithinGeofence($lat, $lng)) {
+        $companySetting = \App\Models\CompanySetting::where('company_id', $employee->company_id)->first();
+        $allowFieldCheckin = $companySetting?->settings_data['allow_field_checkin'] ?? false;
+
+        if (!$allowFieldCheckin && !$this->engine->isWithinGeofence($lat, $lng)) {
             throw new BusinessException("Clock-out rejected: Location is outside the office allowable perimeter.", 422);
         }
 

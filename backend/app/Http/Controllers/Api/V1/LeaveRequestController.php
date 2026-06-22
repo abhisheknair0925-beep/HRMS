@@ -12,6 +12,8 @@ use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+use App\Models\Employee;
+
 class LeaveRequestController extends Controller
 {
     use ApiResponseTrait;
@@ -32,7 +34,7 @@ class LeaveRequestController extends Controller
         }
 
         $validated = $request->validate([
-            'employee_id' => 'required|uuid|exists:employees,id',
+            'employee_id' => 'sometimes|required|uuid|exists:employees,id',
             'leave_policy_id' => 'required|uuid|exists:leave_policies,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -40,16 +42,22 @@ class LeaveRequestController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
+        $employeeId = $validated['employee_id'] ?? $user->employee?->id;
+
+        if (!$employeeId) {
+            return $this->errorResponse('Employee profile not found.', 422);
+        }
+
         // Standard employees can only apply for themselves
         if (!$user->hasAnyRole(['Admin', 'HR', 'Manager'])) {
             $userEmployee = $user->employee;
-            if (!$userEmployee || $userEmployee->id !== $validated['employee_id']) {
+            if (!$userEmployee || $userEmployee->id !== $employeeId) {
                 return $this->errorResponse('Access denied. You can only apply for leave for yourself.', 403);
             }
         }
 
         $leave = $this->leaveService->applyForLeave(
-            $validated['employee_id'],
+            $employeeId,
             $validated['leave_policy_id'],
             $validated['start_date'],
             $validated['end_date'],

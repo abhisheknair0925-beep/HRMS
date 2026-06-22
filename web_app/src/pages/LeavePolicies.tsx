@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../lib/api';
 import { 
   Settings2, Calendar, CheckCircle2, 
   HelpCircle, DollarSign, FileSpreadsheet, X 
@@ -35,37 +36,31 @@ interface EncashmentRequest {
   status: 'Approved' | 'Pending' | 'Rejected';
 }
 
+interface EmployeeOption {
+  id: string;
+  name: string;
+}
+
 export const LeavePolicies: React.FC = () => {
   // Configured policies
-  const [policies, setPolicies] = useState<LeavePolicyConfig[]>([
-    { id: '1', name: 'Sick Leave', max_days: 10, encashable: false },
-    { id: '2', name: 'Casual Leave', max_days: 12, encashable: false },
-    { id: '3', name: 'Annual Leave', max_days: 15, encashable: true }
-  ]);
+  const [policies, setPolicies] = useState<LeavePolicyConfig[]>([]);
 
   // Holiday list
-  const [holidays] = useState<HolidayEvent[]>([
-    { id: '1', name: 'New Year Day', date: '2026-01-01', type: 'Public Holiday' },
-    { id: '2', name: 'Labor Day', date: '2026-05-01', type: 'Public Holiday' },
-    { id: '3', name: 'National Day', date: '2026-12-02', type: 'Corporate Closed' },
-    { id: '4', name: 'HumaNode Hackathon Week', date: '2026-06-22', type: 'Event' }
-  ]);
+  const [holidays, setHolidays] = useState<HolidayEvent[]>([]);
 
   // Comp-off list
-  const [compOffs, setCompOffs] = useState<CompOffRequest[]>([
-    { id: 'c1', employee_name: 'John Employee', worked_date: '2026-06-13', reason: 'Weekend production server hotfix deployment.', status: 'Pending' }
-  ]);
+  const [compOffs, setCompOffs] = useState<CompOffRequest[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
 
   // Leave encashment list
-  const [encashments, setEncashments] = useState<EncashmentRequest[]>([
-    { id: 'e1', employee_name: 'Sarah Manager', policy_name: 'Annual Leave', days_to_encash: 5, amount: 1500, status: 'Pending' }
-  ]);
+  const [encashments, setEncashments] = useState<EncashmentRequest[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Form states
   const [editPolicyId, setEditPolicyId] = useState<string | null>(null);
   const [editPolicyDays, setEditPolicyDays] = useState(15);
   const [showCompOffModal, setShowCompOffModal] = useState(false);
-  const [compOffName, setCompOffName] = useState('John Employee');
+  const [compOffEmployeeId, setCompOffEmployeeId] = useState('');
   const [compOffDate, setCompOffDate] = useState('');
   const [compOffReason, setCompOffReason] = useState('Production support');
 
@@ -78,55 +73,122 @@ export const LeavePolicies: React.FC = () => {
     setTimeout(() => setSuccess(false), 3000);
   };
 
-  const handleUpdatePolicy = (e: React.FormEvent) => {
+  const mapPolicy = (policy: any): LeavePolicyConfig => ({
+    id: policy.id,
+    name: policy.name,
+    max_days: Number(policy.total_days ?? 0),
+    encashable: Number(policy.carry_over_max ?? 0) > 0 || policy.name.toLowerCase().includes('annual'),
+  });
+
+  const mapEncashment = (encashment: any): EncashmentRequest => ({
+    id: encashment.id,
+    employee_name: encashment.employee
+      ? `${encashment.employee.first_name} ${encashment.employee.last_name}`
+      : 'Employee',
+    policy_name: encashment.leave_policy?.name ?? 'Leave',
+    days_to_encash: Number(encashment.days_to_encash ?? 0),
+    amount: Number(encashment.total_amount ?? 0),
+    status: encashment.status,
+  });
+
+  const mapHoliday = (holiday: any): HolidayEvent => ({
+    id: holiday.id,
+    name: holiday.name,
+    date: holiday.holiday_date,
+    type: holiday.type,
+  });
+
+  useEffect(() => {
+    const loadLeaveManagement = async () => {
+      try {
+        const [policiesRes, encashmentsRes, holidaysRes, compOffsRes, employeesRes] = await Promise.all([
+          api.get('/leave-policies'),
+          api.get('/leaves/encashments/pending'),
+          api.get('/holidays'),
+          api.get('/comp-offs'),
+          api.get('/employees'),
+        ]);
+        setPolicies((policiesRes.data.data ?? []).map(mapPolicy));
+        setEncashments((encashmentsRes.data.data ?? []).map(mapEncashment));
+        setHolidays((holidaysRes.data.data ?? []).map(mapHoliday));
+        setCompOffs(compOffsRes.data.data ?? []);
+        const employeeOptions = (employeesRes.data.data.data ?? []).map((employee: any) => ({
+          id: employee.id,
+          name: `${employee.first_name} ${employee.last_name}`,
+        }));
+        setEmployees(employeeOptions);
+        setCompOffEmployeeId(employeeOptions[0]?.id ?? '');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeaveManagement();
+  }, []);
+
+  const handleUpdatePolicy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editPolicyId) return;
 
-    setPolicies(prev => prev.map(p => p.id === editPolicyId ? { ...p, max_days: editPolicyDays } : p));
+    const currentPolicy = policies.find(policy => policy.id === editPolicyId);
+    const res = await api.put(`/leave-policies/${editPolicyId}`, {
+      name: currentPolicy?.name,
+      total_days: editPolicyDays,
+    });
+    const updatedPolicy = mapPolicy(res.data.data);
+    setPolicies(prev => prev.map(p => p.id === editPolicyId ? updatedPolicy : p));
     setEditPolicyId(null);
     triggerSuccess('Leave policy allocations updated successfully!');
   };
 
-  const handleCreateCompOff = (e: React.FormEvent) => {
+  const handleCreateCompOff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!compOffDate) return;
+    if (!compOffDate || !compOffEmployeeId) return;
 
-    const newRequest: CompOffRequest = {
-      id: `c${compOffs.length + 1}`,
-      employee_name: compOffName,
+    const res = await api.post('/comp-offs', {
+      employee_id: compOffEmployeeId,
       worked_date: compOffDate,
       reason: compOffReason,
-      status: 'Pending'
-    };
+    });
 
-    setCompOffs([...compOffs, newRequest]);
+    setCompOffs([res.data.data, ...compOffs]);
     setShowCompOffModal(false);
     triggerSuccess('Comp-off credit request submitted!');
   };
 
-  const handleApproveCompOff = (id: string) => {
-    setCompOffs(prev => prev.map(c => c.id === id ? { ...c, status: 'Approved' } : c));
+  const handleApproveCompOff = async (id: string) => {
+    const res = await api.post(`/comp-offs/${id}/approve`);
+    setCompOffs(prev => prev.map(c => c.id === id ? res.data.data : c));
     triggerSuccess('Comp-off credited to employee leave balance.');
   };
 
-  const handleRejectCompOff = (id: string) => {
-    setCompOffs(prev => prev.map(c => c.id === id ? { ...c, status: 'Rejected' } : c));
+  const handleRejectCompOff = async (id: string) => {
+    const res = await api.post(`/comp-offs/${id}/reject`);
+    setCompOffs(prev => prev.map(c => c.id === id ? res.data.data : c));
     triggerSuccess('Comp-off request rejected.');
   };
 
-  const handleApproveEncashment = (id: string) => {
-    setEncashments(prev => prev.map(e => e.id === id ? { ...e, status: 'Approved' } : e));
+  const handleApproveEncashment = async (id: string) => {
+    const res = await api.post(`/leaves/encashments/${id}/approve`);
+    const updated = mapEncashment(res.data.data);
+    setEncashments(prev => prev.map(e => e.id === id ? updated : e));
     triggerSuccess('Leave encashment request approved. Salary slip deductions logged.');
   };
 
-  const handleRejectEncashment = (id: string) => {
-    setEncashments(prev => prev.map(e => e.id === id ? { ...e, status: 'Rejected' } : e));
+  const handleRejectEncashment = async (id: string) => {
+    const res = await api.post(`/leaves/encashments/${id}/reject`);
+    const updated = mapEncashment(res.data.data);
+    setEncashments(prev => prev.map(e => e.id === id ? updated : e));
     triggerSuccess('Leave encashment request rejected.');
   };
 
   const handleDownloadReport = () => {
     alert("Leave parameters summary sheet generated. Download started (leave_registry_report_2026.csv).");
   };
+
+  if (loading) {
+    return <div className="text-center py-12 text-slate-400 text-sm">Loading leave management...</div>;
+  }
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -357,10 +419,10 @@ export const LeavePolicies: React.FC = () => {
             <form onSubmit={handleCreateCompOff} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">Employee</label>
-                <select value={compOffName} onChange={(e) => setCompOffName(e.target.value)} className="glass-input text-xs" required>
-                  <option value="John Employee">John Employee</option>
-                  <option value="Sarah Manager">Sarah Manager</option>
-                  <option value="Sarah HR">Sarah HR</option>
+                <select value={compOffEmployeeId} onChange={(e) => setCompOffEmployeeId(e.target.value)} className="glass-input text-xs" required>
+                  {employees.map(employee => (
+                    <option key={employee.id} value={employee.id}>{employee.name}</option>
+                  ))}
                 </select>
               </div>
 

@@ -164,4 +164,27 @@ class LeaveManagementTest extends TestCase
         $balance->refresh();
         $this->assertEquals(5.0, $balance->encashed_days);
     }
+
+    public function test_leave_encashment_rejection_flow(): void
+    {
+        LeaveBalance::create([
+            'company_id' => $this->company->id,
+            'employee_id' => $this->employee->id,
+            'leave_policy_id' => $this->policy->id,
+            'allocated_days' => 10.0,
+            'used_days' => 0.0,
+            'encashed_days' => 0.0,
+        ]);
+
+        $service = new \App\Services\LeaveService();
+        $encash = $service->requestEncashment($this->employee->id, $this->policy->id, 2.0, 100.0);
+
+        $service->rejectEncashment($encash->id, $this->user->id);
+
+        $this->assertDatabaseHas('leave_encashments', [
+            'id' => $encash->id,
+            'status' => 'Rejected',
+            'approved_by' => $this->user->id,
+        ]);
+    }
 }

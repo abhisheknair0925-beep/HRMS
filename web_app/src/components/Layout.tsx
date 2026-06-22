@@ -3,8 +3,9 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Home, Calendar, Clock, FolderClosed, 
-  Menu, Bell, Sun, Moon, Briefcase, Settings, Users,
-  FileText, UserPlus, GitFork, Settings2, DollarSign, X
+  Menu, Bell, Sun, Moon, Briefcase, Settings, Users, User,
+  FileText, UserPlus, GitFork, Settings2, DollarSign,
+  ShieldAlert, X
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
@@ -34,26 +35,60 @@ export const Layout: React.FC = () => {
   };
 
   const menuItems = [
+    // Common Dashboard
     { name: 'Dashboard', path: '/dashboard', icon: Home, role: 'All' },
-    { name: 'My Attendance', path: '/attendance', icon: Clock, role: 'All' },
-    { name: 'My Leaves', path: '/leaves', icon: Calendar, role: 'All' },
-    { name: 'My Documents', path: '/documents', icon: FolderClosed, role: 'All' },
     
-    // Manager/HR items
-    { name: 'Manager Portal', path: '/manager/dashboard', icon: Briefcase, role: ['Manager', 'HR', 'Admin'] },
-    { name: 'Employee Registry', path: '/admin/employees', icon: Users, role: ['HR', 'Admin'] },
-    { name: 'Document Center', path: '/admin/documents', icon: FileText, role: ['HR', 'Admin'] },
-    { name: 'Onboarding & Assets', path: '/admin/onboarding', icon: UserPlus, role: ['HR', 'Admin'] },
-    { name: 'Payroll Hub', path: '/admin/payroll', icon: DollarSign, role: ['HR', 'Admin'] },
-    { name: 'Org Chart', path: '/admin/org-chart', icon: GitFork, role: ['HR', 'Admin'] },
-    { name: 'Leave Policies', path: '/admin/leave-policies', icon: Settings2, role: ['Admin'] },
-    { name: 'Settings', path: '/admin/settings', icon: Settings, role: ['Admin'] },
+    // Employee Role Modules
+    { name: 'My Attendance', path: '/attendance', icon: Clock, role: ['Employee', 'Manager'] },
+    { name: 'My Leaves', path: '/leaves', icon: Calendar, role: ['Employee', 'Manager'] },
+    { name: 'My Documents', path: '/documents', icon: FolderClosed, role: ['Employee', 'Manager'] },
+    { name: 'Employee Directory', path: '/admin/org-chart', icon: Users, role: ['Employee'] },
+
+    // Manager Role Modules
+    { name: 'Team Management', path: '/manager/dashboard', icon: Users, role: ['Manager'] },
+    { name: 'Team Approvals', path: '/manager/dashboard', icon: ShieldAlert, role: ['Manager'] },
+    
+    // HR Role Modules
+    { name: 'My Profile', path: '/profile', icon: User, role: ['HR'] },
+    { name: 'My Attendance', path: '/attendance', icon: Clock, role: ['HR'] },
+    { name: 'My Leave', path: '/leaves', icon: Calendar, role: ['HR'] },
+    { name: 'My Documents', path: '/documents', icon: FolderClosed, role: ['HR'] },
+    { name: 'Employee Registry', path: '/admin/employees', icon: Users, role: ['HR'] },
+    { name: 'Onboarding', path: '/admin/onboarding', icon: UserPlus, role: ['HR'] },
+    { name: 'Document Center', path: '/admin/documents', icon: FileText, role: ['HR'] },
+    { name: 'Attendance Management', path: '/manager/dashboard', icon: Clock, role: ['HR'] },
+    { name: 'Leave Management', path: '/admin/leave-policies', icon: Settings2, role: ['HR'] },
+    { name: 'Asset Management', path: '/admin/onboarding', icon: Briefcase, role: ['HR'] },
+    { name: 'Payroll Hub', path: '/admin/payroll', icon: DollarSign, role: ['HR'] },
+    { name: 'Org Chart', path: '/admin/org-chart', icon: GitFork, role: ['HR'] },
+    { name: 'Manage Portal', path: '/admin/settings', icon: Settings, role: ['HR'] },
+
+    // Admin Role Modules (Full Suite Access)
+    { name: 'My Attendance', path: '/attendance', icon: Clock, role: ['Admin'] },
+    { name: 'My Leaves', path: '/leaves', icon: Calendar, role: ['Admin'] },
+    { name: 'My Documents', path: '/documents', icon: FolderClosed, role: ['Admin'] },
+    { name: 'Employee Management', path: '/admin/employees', icon: Users, role: ['Admin'] },
+    { name: 'Organization Setup', path: '/admin/org-chart', icon: GitFork, role: ['Admin'] },
+    { name: 'Attendance', path: '/manager/dashboard', icon: Clock, role: ['Admin'] },
+    { name: 'Leave Management', path: '/admin/leave-policies', icon: Settings2, role: ['Admin'] },
+    { name: 'Payroll Hub', path: '/admin/payroll', icon: DollarSign, role: ['Admin'] },
+    { name: 'Document Center', path: '/admin/documents', icon: FileText, role: ['Admin'] },
+    { name: 'Asset Management', path: '/admin/onboarding', icon: Briefcase, role: ['Admin'] },
+    { name: 'Reports', path: '/admin/reports', icon: FileText, role: ['Admin'] },
+    { name: 'System Settings', path: '/admin/settings', icon: Settings, role: ['Admin'] },
   ];
 
   const filteredMenu = menuItems.filter(item => {
     if (item.role === 'All') return true;
     if (!user) return false;
-    return Array.isArray(item.role) ? item.role.includes(user.role) : item.role === user.role;
+    let userRole = user.role || 'Employee';
+    if (userRole.toLowerCase() === 'super admin') {
+      userRole = 'Admin';
+    }
+    // Normalize role string comparison
+    return Array.isArray(item.role) 
+      ? item.role.some(r => r && r.toLowerCase() === userRole.toLowerCase()) 
+      : typeof item.role === 'string' && item.role.toLowerCase() === userRole.toLowerCase();
   });
 
   return (

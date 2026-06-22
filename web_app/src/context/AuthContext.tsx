@@ -80,10 +80,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password, 
       device_name: 'web_app' 
     });
-    const { access_token: receivedToken, user: userData } = res.data.data;
+    const { access_token: receivedToken, user: userData, roles } = res.data.data;
+    const userWithRole = {
+      ...userData,
+      role: roles && roles.length > 0 ? roles[0] : 'Employee'
+    };
     localStorage.setItem('auth_token', receivedToken);
     setToken(receivedToken);
-    setUser(userData);
+    setUser(userWithRole);
   };
 
   return (

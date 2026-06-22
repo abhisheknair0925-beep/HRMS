@@ -8,11 +8,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\User;
 use App\Exports\EmployeeExport;
 use App\Imports\EmployeeImport;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -30,7 +32,7 @@ class EmployeeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $employees = Employee::query()
-            ->with(['user.roles', 'department', 'designation', 'manager'])
+            ->with(['user.roles', 'department', 'designation', 'manager', 'managerProfile'])
             ->when($request->status, fn($q, $status) => $q->where('status', $status))
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
@@ -57,7 +59,27 @@ class EmployeeController extends Controller
             return $this->errorResponse('Access denied. Only Admins or HR can register new employees.', 403);
         }
 
-        $employee = Employee::create($request->validated());
+        $validated = $request->validated();
+        $roleName = $validated['role_name'] ?? null;
+        unset($validated['role_name']);
+
+        if (!empty($validated['email']) && empty($validated['user_id'])) {
+            $newUser = User::create([
+                'company_id' => $user->company_id,
+                'name' => trim("{$validated['first_name']} {$validated['last_name']}"),
+                'email' => $validated['email'],
+                'password' => Hash::make('Welcome@HumaNode123'),
+                'is_active' => true,
+            ]);
+
+            if ($roleName) {
+                $newUser->syncRoles([$roleName]);
+            }
+
+            $validated['user_id'] = $newUser->id;
+        }
+
+        $employee = Employee::create($validated)->load(['user.roles', 'department', 'designation', 'manager']);
         return $this->successResponse($employee, 'Employee profile created successfully.', 201);
     }
 
@@ -116,9 +138,27 @@ class EmployeeController extends Controller
             return $this->errorResponse('Access denied. Only Admins or HR can edit master employee records.', 403);
         }
 
-        $employee->update($request->validated());
+        $validated = $request->validated();
+        $roleName = $validated['role_name'] ?? null;
+        unset($validated['role_name']);
 
-        return $this->successResponse($employee, 'Employee profile updated successfully.');
+        $employee->update($validated);
+
+        if ($employee->user) {
+            $employee->user->update([
+                'name' => trim("{$employee->first_name} {$employee->last_name}"),
+                'email' => $employee->email ?: $employee->user->email,
+            ]);
+
+            if ($roleName) {
+                $employee->user->syncRoles([$roleName]);
+            }
+        }
+
+        return $this->successResponse(
+            $employee->fresh(['user.roles', 'department', 'designation', 'manager', 'managerProfile']),
+            'Employee profile updated successfully.'
+        );
     }
 
     /**
